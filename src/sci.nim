@@ -5,7 +5,7 @@ import nimscintilla/[Scintilla, SciLexer]
 when defined(Windows):
   import "."/win
 
-import "."/[actions, globals]
+import "."/[actions, globals, plugin]
 
 proc initScintilla() =
   if Scintilla_RegisterClasses(nil) == 0:
@@ -33,9 +33,10 @@ proc commandCallback() =
 
 proc feudStart*() =
   initScintilla()
+  initPlugins()
 
   createWindows()
   initDocuments()
-  commandCallback.messageLoop()
+  messageLoop(commandCallback, syncPlugins)
 
   exitScintilla()
