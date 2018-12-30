@@ -1,8 +1,5 @@
 import tables
 
-import "."/scitable
-export scitable.SciVars
-
 type
   SciState = object
     current*: string

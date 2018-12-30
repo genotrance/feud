@@ -1,6 +1,6 @@
 import strutils, tables
 
-import nimscintilla/[Scintilla, SciLexer]
+import nimscintilla/[Scintilla, SciLexer, Scitable]
 
 when defined(Windows):
   import "."/win

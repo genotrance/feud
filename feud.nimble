@@ -9,4 +9,4 @@ bin = @["feud"]
 
 # Dependencies
 
-requires "nim >= 0.19.0", "nimscintilla >= 0.1.0", "winim >= 2.5.2", "regex >= 0.10.0", "cligen >= 0.9.17"
+requires "nim >= 0.19.0", "nimscintilla >= 0.2.0", "winim >= 2.5.2", "cligen >= 0.9.17"
