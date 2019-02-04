@@ -43,10 +43,17 @@ proc monitorPlugins(ch: ptr Channel[string]) {.thread.} =
           dllPath = sourcePath.dll
         if sourcePath.needsRebuild(dllPath):
           let
-            (output, exitCode) = execCmdEx(&"nim c --app:lib -o:{dllPath}.new {sourcePath}")
+            relbuild =
+              when defined(release):
+                "-d:release"
+              else:
+                ""
+            (output, exitCode) = execCmdEx(&"nim c --app:lib -o:{dllPath}.new {relbuild} {sourcePath}")
           if exitCode != 0:
             doAssert ch[].trySend(&"{output}\nPlugin compilation failed for {sourcePath}"), "trySend() failure: plugin rebuild failure"
           else:
+            if sourcePath notin loaded:
+              loaded.incl sourcePath
             doAssert ch[].trySend(&"{dllPath}.new"), "trySend() failure: plugin rebuild"
         elif sourcePath notin loaded:
           loaded.incl sourcePath
@@ -74,18 +81,27 @@ proc loadPlugin(dllPath: string, ctx: var Ctx) =
   var
     plugin = new(Plugin)
 
-  if dllPath[^4 .. ^1] == ".new":
-    plugin.path = dllPath[0 .. ^5]
-    while tryRemoveFile(plugin.path) == false:
-      sleep(250)
-      echo "Waiting"
-
-    moveFile(dllPath, plugin.path)
-  else:
-    plugin.path = dllPath
+  plugin.path =
+    if dllPath.splitFile().ext == ".new":
+      dllPath[0 .. ^5]
+    else:
+      dllPath
 
   plugin.name = plugin.path.splitFile().name
   plugin.name.unloadPlugin(ctx)
+
+  if dllPath.splitFile().ext == ".new":
+    var
+      count = 10
+    while count != 0 and tryRemoveFile(plugin.path) == false:
+      sleep(250)
+      count -= 1
+
+    if fileExists(plugin.path):
+      ctx.notify("Failed to unload {plugin.name}")
+      return
+
+    moveFile(dllPath, plugin.path)
 
   plugin.handle = plugin.path.loadLib()
   plugin.cindex.init()

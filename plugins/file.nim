@@ -1,52 +1,100 @@
-import os, tables
+import os, strformat, strutils, tables
 
 import "../src"/pluginapi
 
 const MAX_BUFFER = 8192
 
 type
-  File = ref object
-    current: string
-    documents: TableRef[string, pointer]
+  Doc = ref object
+    path: string
+    docptr: pointer
 
-proc getFileData(ctx: var Ctx): File =
+  Docs = ref object
+    current: int
+    doclist: seq[Doc]
+
+proc getDocs(ctx: var Ctx): Docs =
   if not ctx.pluginData.hasKey("file"):
-    ctx.pluginData["file"] = cast[pointer](new(File))
+    ctx.pluginData["file"] = cast[pointer](new(Docs))
 
-  result = cast[File](ctx.pluginData["file"])
+  result = cast[Docs](ctx.pluginData["file"])
 
-proc initDocuments(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
+proc initDocs(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
   var
-    fileData = ctx.getFileData()
+    docs = ctx.getDocs()
 
-  if fileData.documents.isNil:
-    fileData.documents = newTable[string, pointer]()
+  if docs.doclist.len == 0:
+    var
+      notif = new(Doc)
+    notif.path = "Notifications"
+    notif.docptr = ctx.eMsg(SCI_GETDOCPOINTER).toPtr
 
-    fileData.documents["UNTITLED"] = ctx.eMsg(SCI_GETDOCPOINTER).toPtr
-    fileData.current = "UNTITLED"
+    docs.doclist.add notif
+    docs.current = 0
 
-proc switchFile(name: string, ctx: var Ctx) =
+proc findDocFromString(ctx: var Ctx, srch: string): int =
+  result = -1
   var
-    fileData = ctx.getFileData()
+    docs = ctx.getDocs()
 
-  if fileData.current == name or not fileData.documents.hasKey(name):
+  # Exact match
+  for i in 0 .. docs.doclist.len-1:
+    if srch == docs.doclist[i].path:
+      result = i
+      break
+
+  # File name.ext match
+  if result == -1:
+    for i in 0 .. docs.doclist.len-1:
+      if srch == docs.doclist[i].path.extractFilename():
+        result = i
+        break
+
+  # File name match
+  if result == -1:
+    for i in 0 .. docs.doclist.len-1:
+      if srch == docs.doclist[i].path.splitFile().name:
+        result = i
+        break
+
+proc findDocFromParam(ctx: var Ctx): int =
+  var
+    docs = ctx.getDocs()
+
+  result =
+    if ctx.cmdParam.len == 0:
+      docs.current
+    else:
+      ctx.findDocFromString(ctx.cmdParam)
+
+  if result < 0:
+    try:
+      result = parseInt(ctx.cmdParam)
+    except ValueError:
+      discard
+
+proc switchDoc(ctx: var Ctx, docid: int) =
+  var
+    docs = ctx.getDocs()
+
+  if docid < 0 or docid > docs.doclist.len-1 or docid == docs.current:
     return
 
-  discard ctx.eMsg(SCI_ADDREFDOCUMENT, 0, fileData.documents[fileData.current])
-  discard ctx.eMsg(SCI_SETDOCPOINTER, 0, fileData.documents[name])
-  discard ctx.eMsg(SCI_RELEASEDOCUMENT, 0, fileData.documents[name])
+  discard ctx.eMsg(SCI_ADDREFDOCUMENT, 0, docs.doclist[docs.current].docptr)
+  discard ctx.eMsg(SCI_SETDOCPOINTER, 0, docs.doclist[docid].docptr)
+  discard ctx.eMsg(SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
 
-  fileData.current = name
+  docs.current = docid
 
-proc loadFileContents(name: string, ctx: var Ctx) =
-  if not fileExists(name):
+proc loadFileContents(ctx: var Ctx, path: string) =
+  if not fileExists(path):
     return
 
   discard ctx.eMsg(SCI_CLEARALL)
   var
     buffer = newString(MAX_BUFFER)
     bytesRead = 0
-    f = open(name)
+    f = open(path)
 
   while true:
     bytesRead = readBuffer(f, addr buffer[0], MAX_BUFFER)
@@ -60,35 +108,62 @@ proc loadFileContents(name: string, ctx: var Ctx) =
 
 proc open(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
   let
-    name = ctx.cmdParam
+    path = ctx.cmdParam
+    docid = ctx.findDocFromParam()
 
-  if not fileExists(name):
-    ctx.notify("File does not exist")
+  if docid > -1:
+    ctx.switchDoc(docid)
   else:
-    var
-      fileData = ctx.getFileData()
-
-    if not fileData.documents.hasKey(name):
+    if not fileExists(path):
+      ctx.notify(&"File does not exist: {path}")
+    else:
       var
-        info = name.getFileInfo()
-        doc = ctx.eMsg(SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
+        docs = ctx.getDocs()
 
-      fileData.documents[name] = doc
+      if ctx.findDocFromString(path) < 0:
+        var
+          info = path.getFileInfo()
+          doc = new(Doc)
 
-    switchFile(name, ctx)
+        doc.path = path
+        doc.docptr = ctx.eMsg(SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
 
-    loadFileContents(name, ctx)
+        docs.doclist.add doc
+
+      ctx.switchDoc(docs.doclist.len-1)
+
+      ctx.loadFileContents(path)
 
 proc list(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
   var
     lout = ""
-    fileData = ctx.getFileData()
+    docs = ctx.getDocs()
 
-  for name in fileData.documents.keys():
-    lout &= name & "\n"
+  for i in 0 .. docs.doclist.len-1:
+    lout &= &"{i} {docs.doclist[i].path}\n"
 
   ctx.notify(lout)
 
+proc close(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
+  var
+    docs = ctx.getDocs()
+
+  var
+    docid = ctx.findDocFromParam()
+
+  if docid > 0:
+    if docid == docs.current:
+      if docid == docs.doclist.len-1:
+        ctx.switchDoc(docid-1)
+      else:
+        ctx.switchDoc(docid+1)
+    else:
+      if docid < docs.current:
+        docs.current -= 1
+
+    discard ctx.eMsg(SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
+    docs.doclist.del(docid)
+
 feudPluginLoad:
-  ctx.initDocuments(plg)
+  ctx.initDocs(plg)
 
