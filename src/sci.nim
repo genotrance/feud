@@ -32,7 +32,8 @@ proc commandCallback(ctx: var Ctx) =
 proc notify(msg: string) =
   let
     msgn = "\n" & msg
-  SCI_ADDTEXT.cMsg(msgn.len, msgn.cstring)
+  SCI_APPENDTEXT.cMsg(msgn.len, msgn.cstring)
+  SCI_GOTOPOS.cMsg(SCI_GETLENGTH.cMsg())
 
 proc initCtx(): Ctx =
   result = new(Ctx)

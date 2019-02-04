@@ -142,7 +142,7 @@ proc list(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
   for i in 0 .. docs.doclist.len-1:
     lout &= &"{i} {docs.doclist[i].path}\n"
 
-  ctx.notify(lout)
+  ctx.notify(lout[0..^2])
 
 proc close(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
   var

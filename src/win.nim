@@ -38,11 +38,11 @@ proc messageLoop*(commandCallback: Callback, pluginCallback: Callback, ctx: var 
 
   while gWin.editor.IsWindow() != 0:
     while PeekMessageW(lpmsg, 0, 0, 0, PM_REMOVE) > 0:
-      if msg.hwnd == gWin.command and msg.message == WM_KEYDOWN:
-        if msg.wparam == VK_RETURN:
-          ctx.commandCallback()
-      discard TranslateMessage(addr msg)
-      discard DispatchMessageW(addr msg)
+      if msg.hwnd == gWin.command and msg.message == WM_KEYDOWN and msg.wparam == VK_RETURN:
+        ctx.commandCallback()
+      else:
+        discard TranslateMessage(addr msg)
+        discard DispatchMessageW(addr msg)
 
       ctx.pluginCallback()
 

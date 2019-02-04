@@ -60,3 +60,5 @@ proc handleCommand*(command: string, ctx: var Ctx) =
     else:
       ctx.cmdParam = param
       handlePluginCommand(cmd, ctx)
+
+  ctx.notify("")
