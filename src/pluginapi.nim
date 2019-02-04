@@ -30,19 +30,16 @@ macro feudCallback*(body): untyped =
 
   result = body
 
-  echo result.treeRepr
-
 const
   callbacks = ctcallbacks
 
-macro feudPluginLoad*(body: untyped): untyped =
-  result = quote do:
-    proc onLoad*(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
-      plg.cindex = callbacks
+template feudPluginLoad*(body: untyped) {.dirty.} =
+  proc onLoad*(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
+    bind callbacks
+    plg.cindex = callbacks
 
-      `body`
+    body
 
-macro feudPluginUnload*(body: untyped): untyped =
-  result = quote do:
-    proc onUnload*(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
-      `body`
+template feudPluginUnload*(body: untyped) {.dirty.} =
+  proc onUnload*(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
+    body

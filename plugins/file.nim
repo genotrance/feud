@@ -90,6 +90,5 @@ proc list(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
   ctx.notify(lout)
 
 feudPluginLoad:
-  discard
-  # ctx.initDocuments(plg)
+  ctx.initDocuments(plg)
 
