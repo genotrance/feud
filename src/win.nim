@@ -2,7 +2,7 @@ import os
 
 import winim/inc/[windef, winbase, winuser], winim/winstr
 
-{.passC: "-UWIN32_LEAN_AND_MEAN".}
+import "."/globals
 
 type
   WinState = object
@@ -31,7 +31,7 @@ proc eMsg*(msgID: int, wparam: pointer = nil, lparam: pointer = nil): int {.disc
 proc cMsg*(msgID: int, wparam: pointer = nil, lparam: pointer = nil): int {.discardable.} =
   return gWin.command.SendMessage(cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam))
 
-proc messageLoop*(commandCallback: proc(), pluginCallback: proc()) =
+proc messageLoop*(commandCallback: Callback, pluginCallback: Callback, ctx: var Ctx) =
   var
     msg: MSG
     lpmsg = cast[LPMSG](addr msg)
@@ -40,11 +40,11 @@ proc messageLoop*(commandCallback: proc(), pluginCallback: proc()) =
     while PeekMessageW(lpmsg, 0, 0, 0, PM_REMOVE) > 0:
       if msg.hwnd == gWin.command and msg.message == WM_KEYDOWN:
         if msg.wparam == VK_RETURN:
-          commandCallback()
+          ctx.commandCallback()
       discard TranslateMessage(addr msg)
       discard DispatchMessageW(addr msg)
 
-      pluginCallback()
+      ctx.pluginCallback()
 
     sleep(10)
 

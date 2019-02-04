@@ -1,13 +1,28 @@
 import os, tables
 
-import nimscintilla/[Scintilla, SciLexer]
-
 when defined(Windows):
   import "."/win
 
-import "."/[globals, scihelper]
+import "."/[globals, scihelper, scintilla]
 
 const MAX_BUFFER = 8192
+
+var
+  current*: string
+  documents*: TableRef[string, pointer]
+
+    of "open", "o":
+      if param.len != 0:
+        param.openFile()
+    of "list", "l":
+      listFiles()
+
+proc initDocuments*() =
+  if gSciState.documents.isNil:
+    gSciState.documents = newTable[string, pointer]()
+
+    gSciState.documents["UNTITLED"] = SCI_GETDOCPOINTER.eMsg().toPtr
+    gSciState.current = "UNTITLED"
 
 proc switchFile*(name: string) =
   if gSciState.current == name or not gSciState.documents.hasKey(name):

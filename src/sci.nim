@@ -1,11 +1,9 @@
 import tables
 
-import nimscintilla/[Scintilla, SciLexer]
-
 when defined(Windows):
   import "."/win
 
-import "."/[actions, globals, plugin]
+import "."/[actions, globals, plugin, scintilla]
 
 proc initScintilla() =
   if Scintilla_RegisterClasses(nil) == 0:
@@ -17,7 +15,7 @@ proc exitScintilla() =
   if Scintilla_ReleaseResources() == 0:
     raise newException(Exception, "Failed to exit Scintilla")
 
-proc commandCallback() =
+proc commandCallback(ctx: var Ctx) =
   let
     pos = SCI_GETCURRENTPOS.cMsg()
     line = SCI_LINEFROMPOSITION.cMsg(pos)
@@ -29,14 +27,31 @@ proc commandCallback() =
     defer: data.dealloc()
 
     if SCI_GETLINE.cMsg(line, data) == length:
-      ($cast[cstring](data)).handleCommand()
+      ($cast[cstring](data)).handleCommand(ctx)
+
+proc notify(msg: string) =
+  let
+    msgn = "\n" & msg
+  SCI_ADDTEXT.cMsg(msgn.len, msgn.cstring)
+
+proc initCtx(): Ctx =
+  result = new(Ctx)
+
+  result.eMsg = eMsg
+  result.cMsg = cMsg
+  result.notify = notify
+
+  result.plugins = newTable[string, Plugin]()
+  result.pluginData = newTable[string, pointer]()
 
 proc feudStart*() =
+  var
+    ctx = initCtx()
+
   initScintilla()
-  initPlugins()
 
   createWindows()
-  initDocuments()
-  messageLoop(commandCallback, syncPlugins)
+  initPlugins(ctx)
+  messageLoop(commandCallback, syncPlugins, ctx)
 
   exitScintilla()

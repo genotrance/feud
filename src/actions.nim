@@ -1,18 +1,9 @@
-import strutils, tables
-
-import nimscintilla/[Scintilla, SciLexer, Scitable]
+import sets, strutils, tables
 
 when defined(Windows):
   import "."/win
 
-import "."/[file, globals, scihelper]
-
-proc initDocuments*() =
-  if gSciState.documents.isNil:
-    gSciState.documents = newTable[string, pointer]()
-
-    gSciState.documents["UNTITLED"] = SCI_GETDOCPOINTER.eMsg().toPtr
-    gSciState.current = "UNTITLED"
+import "."/[globals, plugin, scintilla]
 
 proc toInt(sval: string, ival: var int): bool =
   let
@@ -24,7 +15,7 @@ proc toInt(sval: string, ival: var int): bool =
   except:
     discard
 
-proc execMsg(cmd, param: string) =
+proc execMsg(cmd, param: string, ctx: var Ctx) =
   let
     spl = param.split(" ", maxsplit=3)
     msgProc = if cmd == "emsg": eMsg else: cMsg
@@ -34,45 +25,38 @@ proc execMsg(cmd, param: string) =
     wc: cstring
 
   if not spl[0].toInt(s):
-    notify("Bad integer value " & spl[0])
+    ctx.notify("Bad integer value " & spl[0])
     return
 
   if spl.len > 1:
     if not spl[1].toInt(l):
-      notify("Bad integer value " & spl[1])
+      ctx.notify("Bad integer value " & spl[1])
       return
 
     if spl.len > 2:
       if not spl[2].toInt(w):
         wc = spl[2].cstring
-        msgProc(s, l, wc).notify()
+        ctx.notify($msgProc(s, l, wc))
       else:
-        msgProc(s, l, w).notify()
+        ctx.notify($msgProc(s, l, w))
     else:
-      msgProc(s, l).notify()
+      ctx.notify($msgProc(s, l))
   else:
-    msgProc(s).notify()
+    ctx.notify($msgProc(s))
 
-proc handleCommand*(command: string) =
+proc handleCommand*(command: string, ctx: var Ctx) =
   let
     spl = command.strip().split(" ", maxsplit=1)
-
-  var
     cmd = spl[0]
-    param = ""
-  if spl.len == 2:
-    param = spl[1]
+
+  var param = if spl.len == 2: spl[1] else: ""
 
   case cmd:
-    of "open", "o":
-      if param.len != 0:
-        param.openFile()
-    of "list", "l":
-      listFiles()
     of "emsg", "cmsg":
       if param.len != 0:
-        execMsg(cmd, param)
-    of "quit":
+        execMsg(cmd, param, ctx)
+    of "quit", "exit":
       exitWindow()
     else:
-      echo cmd
+      ctx.cmdParam = param
+      handlePluginCommand(cmd, ctx)
