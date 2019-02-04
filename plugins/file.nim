@@ -73,6 +73,9 @@ proc findDocFromParam(ctx: var Ctx): int =
     except ValueError:
       discard
 
+  if result > docs.doclist.len-1:
+    result = -1
+
 proc switchDoc(ctx: var Ctx, docid: int) =
   var
     docs = ctx.getDocs()
@@ -108,31 +111,42 @@ proc loadFileContents(ctx: var Ctx, path: string) =
 
 proc open(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
   let
-    path = ctx.cmdParam
-    docid = ctx.findDocFromParam()
+    path = ctx.cmdParam.deepCopy()
 
-  if docid > -1:
-    ctx.switchDoc(docid)
+  if "*" in path or "?" in path:
+    for file in path.walkPattern():
+      ctx.cmdParam = file
+      ctx.open(plg)
   else:
-    if not fileExists(path):
-      ctx.notify(&"File does not exist: {path}")
+    let
+      docid = ctx.findDocFromParam()
+    if docid > -1:
+      ctx.switchDoc(docid)
+    elif path.dirExists():
+      for kind, file in path.walkDir():
+        if kind == pcFile:
+          ctx.cmdParam = file
+          ctx.open(plg)
     else:
-      var
-        docs = ctx.getDocs()
-
-      if ctx.findDocFromString(path) < 0:
+      if not fileExists(path):
+        ctx.notify(&"File does not exist: {path}")
+      else:
         var
-          info = path.getFileInfo()
-          doc = new(Doc)
+          docs = ctx.getDocs()
 
-        doc.path = path
-        doc.docptr = ctx.eMsg(SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
+        if ctx.findDocFromString(path) < 0:
+          var
+            info = path.getFileInfo()
+            doc = new(Doc)
 
-        docs.doclist.add doc
+          doc.path = path
+          doc.docptr = ctx.eMsg(SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
 
-      ctx.switchDoc(docs.doclist.len-1)
+          docs.doclist.add doc
 
-      ctx.loadFileContents(path)
+        ctx.switchDoc(docs.doclist.len-1)
+
+        ctx.loadFileContents(path)
 
 proc list(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
   var

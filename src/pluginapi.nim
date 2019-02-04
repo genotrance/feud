@@ -40,6 +40,10 @@ template feudPluginLoad*(body: untyped) {.dirty.} =
 
     body
 
+template feudPluginLoad*() {.dirty.} =
+  feudPluginLoad:
+    discard
+
 template feudPluginUnload*(body: untyped) {.dirty.} =
   proc onUnload*(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
     body
