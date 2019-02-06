@@ -3,7 +3,9 @@ import sets, strutils, tables
 when defined(Windows):
   import "."/win
 
-import "."/[globals, plugin, scintilla]
+import "."/[globals, plugin]
+
+import ".."/wrappers/scintilla
 
 proc toInt(sval: string, ival: var int): bool =
   let

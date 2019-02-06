@@ -3,7 +3,9 @@ import tables
 when defined(Windows):
   import "."/win
 
-import "."/[actions, globals, plugin, scintilla]
+import "."/[actions, globals, plugin]
+
+import ".."/wrappers/scintilla
 
 proc initScintilla() =
   if Scintilla_RegisterClasses(nil) == 0:
