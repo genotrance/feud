@@ -31,7 +31,7 @@ proc eMsg*(msgID: int, wparam: pointer = nil, lparam: pointer = nil): int {.disc
 proc cMsg*(msgID: int, wparam: pointer = nil, lparam: pointer = nil): int {.discardable.} =
   return gWin.command.SendMessage(cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam))
 
-proc messageLoop*(commandCallback: Callback, pluginCallback: Callback, ctx: var Ctx) =
+proc messageLoop*(ctx: var Ctx, commandCallback: Callback, pluginCallback: Callback) =
   var
     msg: MSG
     lpmsg = cast[LPMSG](addr msg)

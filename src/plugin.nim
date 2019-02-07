@@ -67,64 +67,65 @@ proc initPlugins*(ctx: var Ctx) =
   gMch = newPtrChannel[string]()
   spawn monitorPlugins(gMch)
 
-proc unloadPlugin(name: string, ctx: var Ctx) =
+proc unloadPlugin(ctx: var Ctx, name: string) =
   if ctx.plugins.hasKey(name):
     if not ctx.plugins[name].onUnload.isNil:
-      ctx.plugins[name].onUnload(ctx, ctx.plugins[name])
+      ctx.plugins[name].onUnload(ctx.plugins[name])
 
     ctx.plugins[name].handle.unloadLib()
     ctx.plugins.del(name)
 
     ctx.notify(&"Unloaded {name}")
 
-proc loadPlugin(dllPath: string, ctx: var Ctx) =
+proc loadPlugin(ctx: var Ctx, dllPath: string) =
   var
-    plugin = new(Plugin)
+    plg = new(Plugin)
 
-  plugin.path =
+  plg.ctx = ctx
+  plg.path =
     if dllPath.splitFile().ext == ".new":
       dllPath[0 .. ^5]
     else:
       dllPath
 
-  plugin.name = plugin.path.splitFile().name
-  plugin.name.unloadPlugin(ctx)
+  plg.name = plg.path.splitFile().name
+  ctx.unloadPlugin(plg.name)
 
   if dllPath.splitFile().ext == ".new":
     var
       count = 10
-    while count != 0 and tryRemoveFile(plugin.path) == false:
+    while count != 0 and tryRemoveFile(plg.path) == false:
       sleep(250)
       count -= 1
 
-    if fileExists(plugin.path):
-      ctx.notify("Failed to unload {plugin.name}")
+    if fileExists(plg.path):
+      ctx.notify("Failed to unload {plg.name}")
       return
 
-    moveFile(dllPath, plugin.path)
+    moveFile(dllPath, plg.path)
 
-  plugin.handle = plugin.path.loadLib()
-  plugin.cindex.init()
-  plugin.callbacks = newTable[string, PCallback]()
-  if plugin.handle.isNil:
-    ctx.notify(&"Plugin {plugin.name} failed to load")
+  plg.handle = plg.path.loadLib()
+  plg.cindex.init()
+  plg.callbacks = newTable[string, PCallback]()
+  if plg.handle.isNil:
+    ctx.notify(&"Plugin {plg.name} failed to load")
   else:
     let
-      onLoad = cast[PCallback](plugin.handle.symAddr("onLoad"))
+      onLoad = cast[PCallback](plg.handle.symAddr("onLoad"))
     if onLoad.isNil:
-      ctx.notify(&"Plugin {plugin.name} does not call 'feudPluginLoad()'")
+      ctx.notify(&"Plugin {plg.name} does not call 'feudPluginLoad()'")
     else:
-      onLoad(ctx, plugin)
-      plugin.onUnload = cast[PCallback](plugin.handle.symAddr("onUnload"))
-      for cb in plugin.cindex:
-        plugin.callbacks[cb] = cast[PCallback](plugin.handle.symAddr(cb))
-        if plugin.callbacks[cb].isNil:
-          ctx.notify(&"Plugin {plugin.name} callback `{cb}` failed to load")
-          plugin.callbacks.del cb
+      plg.onLoad()
+      plg.onUnload = cast[PCallback](plg.handle.symAddr("onUnload"))
+      for cb in plg.cindex:
+        plg.callbacks[cb] = cast[PCallback](plg.handle.symAddr(cb))
+        if plg.callbacks[cb].isNil:
+          ctx.notify(&"Plugin {plg.name} callback `{cb}` failed to load")
+          plg.callbacks.del cb
 
-      ctx.notify(&"Loaded {plugin.name}: " & toSeq(plugin.callbacks.keys()).join(", "))
+      ctx.notify(&"Loaded {plg.name}: " & toSeq(plg.callbacks.keys()).join(", "))
 
-    ctx.plugins[plugin.name] = plugin
+    ctx.plugins[plg.name] = plg
 
 proc reloadPlugins(ctx: var Ctx) =
   var
@@ -136,27 +137,27 @@ proc reloadPlugins(ctx: var Ctx) =
 
     if ready:
       if data.fileExists():
-        data.loadPlugin(ctx)
+        ctx.loadPlugin(data)
       else:
         ctx.notify(data)
     else:
       run = false
 
-proc handlePluginCommand*(cmd: string, ctx: var Ctx) =
+proc handlePluginCommand*(ctx: var Ctx, cmd: string) =
   case cmd:
     of "plugins":
       for pl in ctx.plugins.keys():
         ctx.notify(pl.extractFilename)
     of "unload":
       if ctx.cmdParam.len != 0 and ctx.plugins.hasKey(ctx.cmdParam):
-        unloadPlugin(ctx.cmdParam, ctx)
+        ctx.unloadPlugin(ctx.cmdParam)
       else:
         for pl in ctx.plugins.keys():
-          unloadPlugin(pl, ctx)
+          ctx.unloadPlugin(pl)
 
   for pl in ctx.plugins.keys():
     if cmd in ctx.plugins[pl].cindex:
-      ctx.plugins[pl].callbacks[cmd](ctx, ctx.plugins[pl])
+      ctx.plugins[pl].callbacks[cmd](ctx.plugins[pl])
 
 proc syncPlugins*(ctx: var Ctx) =
-  reloadPlugins(ctx)
+  ctx.reloadPlugins()

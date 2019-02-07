@@ -34,7 +34,7 @@ const
   callbacks = ctcallbacks
 
 template feudPluginLoad*(body: untyped) {.dirty.} =
-  proc onLoad*(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
+  proc onLoad*(plg: var Plugin) {.exportc, dynlib.} =
     bind callbacks
     plg.cindex = callbacks
 
@@ -45,5 +45,17 @@ template feudPluginLoad*() {.dirty.} =
     discard
 
 template feudPluginUnload*(body: untyped) {.dirty.} =
-  proc onUnload*(ctx: var Ctx, plg: var Plugin) {.exportc, dynlib.} =
+  proc onUnload*(plg: var Plugin) {.exportc, dynlib.} =
     body
+
+proc getCtxData*[T](plg: var Plugin): T =
+  if not plg.ctx.pluginData.hasKey(plg.name):
+    plg.ctx.pluginData[plg.name] = cast[pointer](new(T))
+
+  result = cast[T](plg.ctx.pluginData[plg.name])
+
+proc getPlgData*[T](plg: var Plugin): T =
+  if not plg.pluginData.isNil:
+    plg.pluginData = cast[pointer](new(T))
+
+  result = cast[T](plg.pluginData)

@@ -29,7 +29,7 @@ proc commandCallback(ctx: var Ctx) =
     defer: data.dealloc()
 
     if SCI_GETLINE.cMsg(line, data) == length:
-      ($cast[cstring](data)).handleCommand(ctx)
+      ctx.handleCommand($cast[cstring](data))
 
 proc notify(msg: string) =
   let
@@ -55,6 +55,6 @@ proc feudStart*() =
 
   createWindows()
   initPlugins(ctx)
-  messageLoop(commandCallback, syncPlugins, ctx)
+  ctx.messageLoop(commandCallback, syncPlugins)
 
   exitScintilla()

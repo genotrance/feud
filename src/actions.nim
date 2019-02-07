@@ -17,7 +17,7 @@ proc toInt(sval: string, ival: var int): bool =
   except:
     discard
 
-proc execMsg(cmd, param: string, ctx: var Ctx) =
+proc execMsg(ctx: var Ctx, cmd, param: string) =
   let
     spl = param.split(" ", maxsplit=3)
     msgProc = if cmd == "emsg": eMsg else: cMsg
@@ -46,7 +46,7 @@ proc execMsg(cmd, param: string, ctx: var Ctx) =
   else:
     ctx.notify($msgProc(s))
 
-proc handleCommand*(command: string, ctx: var Ctx) =
+proc handleCommand*(ctx: var Ctx, command: string) =
   let
     spl = command.strip().split(" ", maxsplit=1)
     cmd = spl[0]
@@ -56,11 +56,11 @@ proc handleCommand*(command: string, ctx: var Ctx) =
   case cmd:
     of "emsg", "cmsg":
       if param.len != 0:
-        execMsg(cmd, param, ctx)
+        ctx.execMsg(cmd, param)
     of "quit", "exit":
       exitWindow()
     else:
       ctx.cmdParam = param
-      handlePluginCommand(cmd, ctx)
+      ctx.handlePluginCommand(cmd)
 
   ctx.notify("")

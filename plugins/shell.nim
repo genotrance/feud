@@ -2,19 +2,19 @@ import os, osproc, strformat
 
 import "../src"/pluginapi
 
-proc exec(ctx: var Ctx, plg: var Plugin) {.feudCallback.} =
+proc exec(plg: var Plugin) {.feudCallback.} =
   var
     cmd =
       when defined(Windows):
         "cmd /c"
       else:
-        "bash -c \""
+        ""
 
-  cmd &= ctx.cmdParam
+  cmd &= plg.ctx.cmdParam
 
   let
     (output, exitCode) = execCmdEx(cmd)
 
-  ctx.notify(&"{output}Returned: {$exitCode}")
+  plg.ctx.notify(&"{output}Returned: {$exitCode}")
 
 feudPluginLoad()
