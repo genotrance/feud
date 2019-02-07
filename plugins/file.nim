@@ -1,4 +1,4 @@
-import os, strformat, strutils, tables
+import os, segfaults, strformat, strutils, tables
 
 import "../src"/pluginapi
 

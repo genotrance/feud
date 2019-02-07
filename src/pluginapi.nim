@@ -3,7 +3,7 @@ import macros, os, sets, strformat, strutils, tables
 import nimterop/cimport
 
 import "."/globals
-export Plugin, Ctx, toPtr
+export Plugin, Ctx, newShared, freeShared, newPtrChannel, closePtrChannel, toPtr
 
 # Scintilla constants
 const
@@ -48,6 +48,10 @@ template feudPluginUnload*(body: untyped) {.dirty.} =
   proc onUnload*(plg: var Plugin) {.exportc, dynlib.} =
     body
 
+template feudPluginTick*(body: untyped) {.dirty.} =
+  proc onTick*(plg: var Plugin) {.exportc, dynlib.} =
+    body
+
 proc getCtxData*[T](plg: var Plugin): T =
   if not plg.ctx.pluginData.hasKey(plg.name):
     plg.ctx.pluginData[plg.name] = cast[pointer](new(T))
@@ -55,7 +59,7 @@ proc getCtxData*[T](plg: var Plugin): T =
   result = cast[T](plg.ctx.pluginData[plg.name])
 
 proc getPlgData*[T](plg: var Plugin): T =
-  if not plg.pluginData.isNil:
+  if plg.pluginData.isNil:
     plg.pluginData = cast[pointer](new(T))
 
   result = cast[T](plg.pluginData)

@@ -12,7 +12,7 @@ type
 var
   gWin: WinState
 
-proc createWindows*() =
+proc createWindows*(ctx: var Ctx) =
   gWin.editor = CreateWindow("Scintilla", "", WS_OVERLAPPEDWINDOW, 10, 10, 800, 600, 0, 0, GetModuleHandleW(nil), nil)
   gWin.command = CreateWindow("Scintilla", "", WS_OVERLAPPED, 10, 610, 800, 180, gWin.editor, 0, GetModuleHandleW(nil), nil)
 
@@ -24,6 +24,9 @@ proc createWindows*() =
 
   if gWin.editor.UpdateWindow() == 0 or gWin.command.UpdateWindow() == 0:
     raise newException(Exception, "UpdateWindow() failed with " & $GetLastError())
+
+  ctx.editor = cast[pointer](gWin.editor)
+  ctx.command = cast[pointer](gWin.command)
 
 proc eMsg*(msgID: int, wparam: pointer = nil, lparam: pointer = nil): int {.discardable.} =
   return gWin.editor.SendMessage(cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam))

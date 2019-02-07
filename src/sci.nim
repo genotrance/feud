@@ -29,7 +29,7 @@ proc commandCallback(ctx: var Ctx) =
     defer: data.dealloc()
 
     if SCI_GETLINE.cMsg(line, data) == length:
-      ctx.handleCommand($cast[cstring](data))
+      handleCommand(ctx, $cast[cstring](data))
 
 proc notify(msg: string) =
   let
@@ -43,6 +43,7 @@ proc initCtx(): Ctx =
   result.eMsg = eMsg
   result.cMsg = cMsg
   result.notify = notify
+  result.handleCommand = handleCommand
 
   result.plugins = newTable[string, Plugin]()
   result.pluginData = newTable[string, pointer]()
@@ -53,8 +54,9 @@ proc feudStart*() =
 
   initScintilla()
 
-  createWindows()
-  initPlugins(ctx)
+  ctx.createWindows()
+  ctx.initPlugins()
   ctx.messageLoop(commandCallback, syncPlugins)
 
+  ctx.stopPlugins()
   exitScintilla()
