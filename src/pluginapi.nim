@@ -52,6 +52,10 @@ template feudPluginTick*(body: untyped) {.dirty.} =
   proc onTick*(plg: var Plugin) {.exportc, dynlib.} =
     body
 
+template feudPluginNotify*(body: untyped) {.dirty.} =
+  proc onNotify*(plg: var Plugin) {.exportc, dynlib.} =
+    body
+
 proc getCtxData*[T](plg: var Plugin): T =
   if not plg.ctx.pluginData.hasKey(plg.name):
     plg.ctx.pluginData[plg.name] = cast[pointer](new(T))

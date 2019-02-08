@@ -15,6 +15,6 @@ proc exec(plg: var Plugin) {.feudCallback.} =
   let
     (output, exitCode) = execCmdEx(cmd)
 
-  plg.ctx.notify(&"{output}Returned: {$exitCode}")
+  plg.ctx.notify(plg.ctx, &"{output}Returned: {$exitCode}")
 
 feudPluginLoad()

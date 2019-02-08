@@ -15,6 +15,7 @@ type
 
     onUnload*: PCallback
     onTick*: PCallback
+    onNotify*: PCallback
 
     pluginData*: pointer
 
@@ -30,7 +31,7 @@ type
 
     eMsg*: proc(msgID: int, wparam: pointer = nil, lparam: pointer = nil): int
     cMsg*: proc(msgID: int, wparam: pointer = nil, lparam: pointer = nil): int
-    notify*: proc(msg: string)
+    notify*: proc(ctx: var Ctx, msg: string)
     handleCommand*: proc(ctx: var Ctx, command: string) {.nimcall.}
 
     pmonitor*: ptr PluginMonitor

@@ -27,24 +27,24 @@ proc execMsg(ctx: var Ctx, cmd, param: string) =
     wc: cstring
 
   if not spl[0].toInt(s):
-    ctx.notify("Bad integer value " & spl[0])
+    ctx.notify(ctx, "Bad integer value " & spl[0])
     return
 
   if spl.len > 1:
     if not spl[1].toInt(l):
-      ctx.notify("Bad integer value " & spl[1])
+      ctx.notify(ctx, "Bad integer value " & spl[1])
       return
 
     if spl.len > 2:
       if not spl[2].toInt(w):
         wc = spl[2].cstring
-        ctx.notify($msgProc(s, l, wc))
+        ctx.notify(ctx, $msgProc(s, l, wc))
       else:
-        ctx.notify($msgProc(s, l, w))
+        ctx.notify(ctx, $msgProc(s, l, w))
     else:
-      ctx.notify($msgProc(s, l))
+      ctx.notify(ctx, $msgProc(s, l))
   else:
-    ctx.notify($msgProc(s))
+    ctx.notify(ctx, $msgProc(s))
 
 proc handleCommand*(ctx: var Ctx, command: string) =
   let
@@ -63,4 +63,4 @@ proc handleCommand*(ctx: var Ctx, command: string) =
       ctx.cmdParam = param
       ctx.handlePluginCommand(cmd)
 
-  ctx.notify("")
+  ctx.notify(ctx, "")

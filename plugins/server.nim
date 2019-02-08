@@ -48,6 +48,8 @@ proc monitorServer(pserver: ptr Server) {.thread.} =
         withLock pserver[].lock:
           for i in pserver[].sendBuf:
             ret = socket.nng_send(i.cstring, (i.len+1).cuint, NNG_FLAG_NONBLOCK.cint)
+          if pserver[].sendBuf.len != 0:
+            pserver[].sendBuf = @[]
 
         sleep(100)
 
@@ -89,7 +91,7 @@ proc readServer(plg: var Plugin) =
     if pserver[].recvBuf.len != 0:
       pserver[].recvBuf = @[]
 
-proc notifyClient(plg: var Plugin) {.feudCallback.} =
+proc notifyClient(plg: var Plugin) =
   var
     pserver = plg.getServer()
 
@@ -102,6 +104,9 @@ feudPluginLoad:
 
 feudPluginTick:
   plg.readServer()
+
+feudPluginNotify:
+  plg.notifyClient()
 
 feudPluginUnload:
   plg.stopServer()

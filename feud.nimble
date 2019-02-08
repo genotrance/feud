@@ -5,7 +5,7 @@ author      = "genotrance"
 description = "Fed Ep with UDitors"
 license     = "MIT"
 
-bin = @["feud"]
+bin = @["feud", "feudc"]
 
 # Dependencies
 

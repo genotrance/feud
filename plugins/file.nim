@@ -127,7 +127,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
           plg.open()
     else:
       if not fileExists(path):
-        plg.ctx.notify(&"File does not exist: {path}")
+        plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
       else:
         var
           docs = plg.getDocs()
@@ -154,7 +154,7 @@ proc list(plg: var Plugin) {.feudCallback.} =
   for i in 0 .. docs.doclist.len-1:
     lout &= &"{i} {docs.doclist[i].path}\n"
 
-  plg.ctx.notify(lout[0..^2])
+  plg.ctx.notify(plg.ctx, lout[0..^2])
 
 proc close(plg: var Plugin) {.feudCallback.} =
   var

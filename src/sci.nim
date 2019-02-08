@@ -42,7 +42,7 @@ proc initCtx(): Ctx =
 
   result.eMsg = eMsg
   result.cMsg = cMsg
-  result.notify = notify
+  result.notify = proc(ctx: var Ctx, str: string) = echo str
   result.handleCommand = handleCommand
 
   result.plugins = newTable[string, Plugin]()

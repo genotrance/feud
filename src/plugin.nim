@@ -47,6 +47,30 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
 
     sleep(5000)
 
+proc unloadPlugin(ctx: var Ctx, name: string) =
+  if ctx.plugins.hasKey(name):
+    if not ctx.plugins[name].onUnload.isNil:
+      try:
+        ctx.plugins[name].onUnload(ctx.plugins[name])
+      except:
+        ctx.notify(ctx, &"Plugin '{name}' crashed in 'feudPluginUnload()'")
+
+    ctx.plugins[name].handle.unloadLib()
+    ctx.plugins.del(name)
+
+    ctx.notify(ctx, &"Plugin '{name}' unloaded")
+
+proc notifyPlugins*(ctx: var Ctx) =
+  for pl in ctx.plugins.keys():
+    var
+      plg = ctx.plugins[pl]
+    if not plg.onNotify.isNil:
+      try:
+        plg.onNotify(plg)
+      except:
+        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
+        ctx.unloadPlugin(plg.name)
+
 proc initPlugins*(ctx: var Ctx) =
   ctx.plugins = newTable[string, Plugin]()
 
@@ -57,20 +81,11 @@ proc initPlugins*(ctx: var Ctx) =
   ctx.pmonitor[].load = @[]
   ctx.pmonitor[].processed.init()
 
+  ctx.notify = proc(ctx: var Ctx, msg: string) =
+    ctx.cmdParam = msg
+    ctx.notifyPlugins()
+
   spawn monitorPlugins(ctx.pmonitor)
-
-proc unloadPlugin(ctx: var Ctx, name: string) =
-  if ctx.plugins.hasKey(name):
-    if not ctx.plugins[name].onUnload.isNil:
-      try:
-        ctx.plugins[name].onUnload(ctx.plugins[name])
-      except:
-        ctx.notify(&"Plugin '{name}' crashed in 'feudPluginUnload()'")
-
-    ctx.plugins[name].handle.unloadLib()
-    ctx.plugins.del(name)
-
-    ctx.notify(&"Plugin '{name}' unloaded")
 
 proc loadPlugin(ctx: var Ctx, dllPath: string) =
   var
@@ -94,7 +109,7 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       count -= 1
 
     if fileExists(plg.path):
-      ctx.notify("Plugin '{plg.name}' failed to unload")
+      ctx.notify(ctx, "Plugin '{plg.name}' failed to unload")
       return
 
     moveFile(dllPath, plg.path)
@@ -103,29 +118,30 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
   plg.cindex.init()
   plg.callbacks = newTable[string, PCallback]()
   if plg.handle.isNil:
-    ctx.notify(&"Plugin '{plg.name}' failed to load")
+    ctx.notify(ctx, &"Plugin '{plg.name}' failed to load")
   else:
     let
       onLoad = cast[PCallback](plg.handle.symAddr("onLoad"))
     if onLoad.isNil:
-      ctx.notify(&"Plugin '{plg.name}' missing 'feudPluginLoad()'")
+      ctx.notify(ctx, &"Plugin '{plg.name}' missing 'feudPluginLoad()'")
     else:
       try:
         plg.onLoad()
       except:
-        ctx.notify(&"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
+        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
         return
 
       plg.onUnload = cast[PCallback](plg.handle.symAddr("onUnload"))
       plg.onTick = cast[PCallback](plg.handle.symAddr("onTick"))
+      plg.onNotify = cast[PCallback](plg.handle.symAddr("onNotify"))
 
       for cb in plg.cindex:
         plg.callbacks[cb] = cast[PCallback](plg.handle.symAddr(cb))
         if plg.callbacks[cb].isNil:
-          ctx.notify(&"Plugin '{plg.name}' callback '{cb}' failed to load")
+          ctx.notify(ctx, &"Plugin '{plg.name}' callback '{cb}' failed to load")
           plg.callbacks.del cb
 
-      ctx.notify(&"Plugin '{plg.name}' loaded (" & toSeq(plg.callbacks.keys()).join(", ") & ")")
+      ctx.notify(ctx, &"Plugin '{plg.name}' loaded (" & toSeq(plg.callbacks.keys()).join(", ") & ")")
 
     ctx.plugins[plg.name] = plg
 
@@ -144,7 +160,7 @@ proc reloadPlugins(ctx: var Ctx) =
       if i.fileExists():
         ctx.loadPlugin(i)
       else:
-        ctx.notify(i)
+        ctx.notify(ctx, i)
     ctx.pmonitor[].load = @[]
 
 proc tickPlugins(ctx: var Ctx) =
@@ -155,14 +171,14 @@ proc tickPlugins(ctx: var Ctx) =
       try:
         plg.onTick(plg)
       except:
-        ctx.notify(&"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
+        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
         ctx.unloadPlugin(plg.name)
 
 proc handlePluginCommand*(ctx: var Ctx, cmd: string) =
   case cmd:
     of "plugins":
       for pl in ctx.plugins.keys():
-        ctx.notify(pl.extractFilename)
+        ctx.notify(ctx, pl.extractFilename)
     of "reload", "load":
       if ctx.cmdParam.len != 0:
         if ctx.plugins.hasKey(ctx.cmdParam):
@@ -176,7 +192,7 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string) =
         if ctx.plugins.hasKey(ctx.cmdParam):
           ctx.unloadPlugin(ctx.cmdParam)
         else:
-          ctx.notify(&"Plugin '{ctx.cmdParam}' not found")
+          ctx.notify(ctx, &"Plugin '{ctx.cmdParam}' not found")
       else:
         for pl in ctx.plugins.keys():
           ctx.unloadPlugin(pl)
@@ -188,7 +204,7 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string) =
       try:
         plg.callbacks[cmd](plg)
       except:
-        ctx.notify(&"Plugin '{plg.name}' crashed in '{cmd}()'")
+        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in '{cmd}()'")
 
 proc syncPlugins*(ctx: var Ctx) =
   ctx.reloadPlugins()
