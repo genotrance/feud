@@ -10,7 +10,8 @@ type
   Server = object
     lock: Lock
     run: bool
-    data: seq[string]
+    recvBuf: seq[string]
+    sendBuf: seq[string]
 
     window: pointer
     reloadWindow: proc(window: pointer) {.nimcall.}
@@ -26,7 +27,7 @@ proc monitorServer(pserver: ptr Server) {.thread.} =
     ret: cint
 
   if nng_bus0_open(addr socket) == 0:
-    if socket.nng_listen("ipc://tmp/feud1", nil, 0) != 0:
+    if socket.nng_listen("tcp://*:3917", nil, 0) != 0:
       echo "Listen failed"
     else:
       while true:
@@ -38,11 +39,15 @@ proc monitorServer(pserver: ptr Server) {.thread.} =
         if ret == 0:
           if sz != 0:
             withLock pserver[].lock:
-              pserver[].data.add $buf
+              pserver[].recvBuf.add $buf
               discard InvalidateRect(cast[HWND](pserver[].window),  nil, 0)
           buf.nng_free(sz)
         elif ret == NNG_ETIMEDOUT:
           echo "Timed out"
+
+        withLock pserver[].lock:
+          for i in pserver[].sendBuf:
+            ret = socket.nng_send(i.cstring, (i.len+1).cuint, NNG_FLAG_NONBLOCK.cint)
 
         sleep(100)
 
@@ -78,11 +83,19 @@ proc readServer(plg: var Plugin) =
     pserver = plg.getServer()
 
   withLock pserver[].lock:
-    for i in pserver[].data:
+    for i in pserver[].recvBuf:
       plg.ctx.handleCommand(plg.ctx, $i)
 
-    if pserver[].data.len != 0:
-      pserver[].data = @[]
+    if pserver[].recvBuf.len != 0:
+      pserver[].recvBuf = @[]
+
+proc notifyClient(plg: var Plugin) {.feudCallback.} =
+  var
+    pserver = plg.getServer()
+
+  if plg.ctx.cmdParam.len != 0:
+    withLock pserver[].lock:
+      pserver[].sendBuf.add plg.ctx.cmdParam
 
 feudPluginLoad:
   plg.initServer()
