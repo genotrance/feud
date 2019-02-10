@@ -1,4 +1,4 @@
-import tables
+import os, tables
 
 when defined(Windows):
   import "."/win
@@ -42,11 +42,7 @@ proc initCtx(): Ctx =
 
   result.eMsg = eMsg
   result.cMsg = cMsg
-  result.notify = proc(ctx: var Ctx, str: string) = echo str
   result.handleCommand = handleCommand
-
-  result.plugins = newTable[string, Plugin]()
-  result.pluginData = newTable[string, pointer]()
 
 proc feudStart*() =
   var
@@ -55,7 +51,7 @@ proc feudStart*() =
   initScintilla()
 
   ctx.createWindows()
-  ctx.initPlugins()
+  ctx.initPlugins(getAppDir()/"plugins")
   ctx.messageLoop(commandCallback, syncPlugins)
 
   ctx.stopPlugins()

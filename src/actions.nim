@@ -61,6 +61,4 @@ proc handleCommand*(ctx: var Ctx, command: string) =
       exitWindow()
     else:
       ctx.cmdParam = param
-      ctx.handlePluginCommand(cmd)
-
-  ctx.notify(ctx, "")
+      discard ctx.handlePluginCommand(cmd)

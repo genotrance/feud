@@ -14,12 +14,17 @@ proc needsRebuild(sourcePath, dllPath: string): bool =
     result = true
 
 proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
+  var
+    path = ""
+  withLock pmonitor[].lock:
+    path = pmonitor[].path
+
   while true:
     withLock pmonitor[].lock:
       if not pmonitor[].run:
         break
 
-    for sourcePath in walkFiles("plugins/*.nim"):
+    for sourcePath in walkFiles(path/"*.nim"):
       let
         dllPath = sourcePath.dll
         name = sourcePath.splitFile().name
@@ -61,20 +66,29 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
     ctx.notify(ctx, &"Plugin '{name}' unloaded")
 
 proc notifyPlugins*(ctx: var Ctx) =
+  var
+    notified = false
   for pl in ctx.plugins.keys():
     var
       plg = ctx.plugins[pl]
     if not plg.onNotify.isNil:
       try:
         plg.onNotify(plg)
+        notified = true
       except:
-        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
         ctx.unloadPlugin(plg.name)
+        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
 
-proc initPlugins*(ctx: var Ctx) =
+  if not notified:
+    echo ctx.cmdParam
+
+proc initPlugins*(ctx: var Ctx, path: string) =
   ctx.plugins = newTable[string, Plugin]()
+  ctx.pluginData = newTable[string, pointer]()
+
 
   ctx.pmonitor = newShared[PluginMonitor]()
+  ctx.pmonitor[].path = path
   ctx.pmonitor[].lock.initLock()
   ctx.pmonitor[].run = true
 
@@ -174,7 +188,8 @@ proc tickPlugins(ctx: var Ctx) =
         ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
         ctx.unloadPlugin(plg.name)
 
-proc handlePluginCommand*(ctx: var Ctx, cmd: string) =
+proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
+  result = true
   case cmd:
     of "plugins":
       for pl in ctx.plugins.keys():
@@ -196,15 +211,18 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string) =
       else:
         for pl in ctx.plugins.keys():
           ctx.unloadPlugin(pl)
-
-  for pl in ctx.plugins.keys():
-    var
-      plg = ctx.plugins[pl]
-    if cmd in plg.cindex:
-      try:
-        plg.callbacks[cmd](plg)
-      except:
-        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in '{cmd}()'")
+    else:
+      result = false
+      for pl in ctx.plugins.keys():
+        var
+          plg = ctx.plugins[pl]
+        if cmd in plg.cindex:
+          result = true
+          try:
+            plg.callbacks[cmd](plg)
+          except:
+            ctx.notify(ctx, &"Plugin '{plg.name}' crashed in '{cmd}()'")
+          break
 
 proc syncPlugins*(ctx: var Ctx) =
   ctx.reloadPlugins()

@@ -20,6 +20,7 @@ type
     pluginData*: pointer
 
   PluginMonitor* = object
+    path*: string
     lock*: Lock
     run*: bool
     load*: seq[string]
