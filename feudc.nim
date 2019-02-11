@@ -12,9 +12,7 @@ proc handleCommand(ctx: var Ctx, command: string) =
     spl = command.strip().split(" ", maxsplit=1)
     cmd = spl[0]
 
-  var param = if spl.len == 2: spl[1] else: ""
-
-  ctx.cmdParam = @[param]
+  ctx.cmdParam = if spl.len == 2: @[spl[1]] else: @[]
   if not ctx.handlePluginCommand(cmd):
     ctx.cmdParam = @[command]
     discard ctx.handlePluginCommand("sendServer")

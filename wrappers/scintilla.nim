@@ -29,7 +29,7 @@ cCompile(sciDir/"src/*.cxx")
 cCompile(sciDir/"lexlib/*.cxx")
 cCompile(sciDir/"lexers/*.cxx")
 
-{.passC: "--std=c++17 -DNDEBUG".}
+{.passC: "--std=c++17 -DNDEBUG -DSCI_LEXER".}
 
 cImport(sciDir/"include/Scintilla.h", recurse=true)
 cImport(sciDir/"include/SciLexer.h")

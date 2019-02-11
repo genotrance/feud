@@ -1,6 +1,7 @@
 import locks, os, strformat, strutils, tables, threadpool
 
-import winim/inc/[windef, winuser]
+when defined(Windows):
+  import winim/inc/[windef, winuser]
 
 import "../src"/pluginapi
 
@@ -48,7 +49,8 @@ proc monitorServer(pserver: ptr Server, listen, dial: string) {.thread.} =
       if sz != 0:
         withLock pserver[].lock:
           pserver[].recvBuf.add $buf
-          discard InvalidateRect(cast[HWND](pserver[].window),  nil, 0)
+          when defined(Windows):
+            discard InvalidateRect(cast[HWND](pserver[].window), nil, 0)
       buf.nng_free(sz)
     elif ret == NNG_ETIMEDOUT:
       echo "Timed out"

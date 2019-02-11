@@ -1,5 +1,8 @@
 import dynlib, locks, os, osproc, sequtils, sets, strformat, strutils, tables, threadpool, times
 
+when defined(Windows):
+  import winim/inc/[windef, winuser]
+
 import "."/[globals]
 
 proc dll(sourcePath: string): string =
@@ -16,10 +19,12 @@ proc needsRebuild(sourcePath, dllPath: string): bool =
 proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   var
     path = ""
+    window: pointer
     base = getAppDir()/"plugins"
 
   withLock pmonitor[].lock:
     path = pmonitor[].path
+    window = pmonitor[].window
 
   while true:
     withLock pmonitor[].lock:
@@ -56,6 +61,9 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             pmonitor[].processed.incl name
             pmonitor[].load.add &"{dllPath}"
 
+    when defined(Windows):
+      if path == "server":
+        discard InvalidateRect(cast[HWND](window), nil, 0)
     sleep(5000)
 
 proc unloadPlugin(ctx: var Ctx, name: string) =
@@ -64,8 +72,7 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
       try:
         ctx.plugins[name].onUnload(ctx.plugins[name])
       except:
-        ctx.notify(ctx, getCurrentExceptionMsg())
-        ctx.notify(ctx, &"Plugin '{name}' crashed in 'feudPluginUnload()'")
+        ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{name}' crashed in 'feudPluginUnload()'")
 
     ctx.plugins[name].handle.unloadLib()
     ctx.plugins.del(name)
@@ -83,13 +90,12 @@ proc notifyPlugins*(ctx: var Ctx) =
         plg.onNotify(plg)
         notified = true
       except:
-        ctx.notify(ctx, getCurrentExceptionMsg())
-        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
+        ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
         ctx.unloadPlugin(plg.name)
 
-  if not notified:
-    if ctx.cmdParam.len != 0:
-      echo ctx.cmdParam[0]
+  # if not notified:
+  if ctx.cmdParam.len != 0:
+    echo ctx.cmdParam[0]
 
   ctx.cmdParam = @[]
 
@@ -104,6 +110,7 @@ proc initPlugins*(ctx: var Ctx, path: string) =
 
   ctx.pmonitor[].load = @[]
   ctx.pmonitor[].processed.init()
+  ctx.pmonitor[].window = ctx.editor
 
   ctx.notify = proc(ctx: var Ctx, msg: string) =
     ctx.cmdParam = @[msg]
@@ -152,8 +159,7 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       try:
         plg.onLoad()
       except:
-        ctx.notify(ctx, getCurrentExceptionMsg())
-        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
+        ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
         plg.handle.unloadLib()
         return
 
@@ -197,21 +203,22 @@ proc tickPlugins(ctx: var Ctx) =
       try:
         plg.onTick(plg)
       except:
-        ctx.notify(ctx, getCurrentExceptionMsg())
-        ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
+        ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
         ctx.unloadPlugin(plg.name)
 
 proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
   result = true
   case cmd:
     of "plugins":
+      var
+        nf = ""
       for pl in ctx.plugins.keys():
-        ctx.notify(ctx, pl.extractFilename)
+        nf &= pl.extractFilename & " "
+      ctx.notify(ctx, nf)
     of "reload", "load":
       if ctx.cmdParam.len != 0:
-        if ctx.plugins.hasKey(ctx.cmdParam[0]):
-          withLock ctx.pmonitor[].lock:
-            ctx.pmonitor[].processed.excl ctx.cmdParam[0]
+        withLock ctx.pmonitor[].lock:
+          ctx.pmonitor[].processed.excl ctx.cmdParam[0]
       else:
         withLock ctx.pmonitor[].lock:
           ctx.pmonitor[].processed.clear()
@@ -234,8 +241,7 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
           try:
             plg.callbacks[cmd](plg)
           except:
-            ctx.notify(ctx, getCurrentExceptionMsg())
-            ctx.notify(ctx, &"Plugin '{plg.name}' crashed in '{cmd}()'")
+            ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in '{cmd}()'")
           break
 
 proc syncPlugins*(ctx: var Ctx) =

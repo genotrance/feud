@@ -60,5 +60,8 @@ proc handleCommand*(ctx: var Ctx, command: string) =
     of "quit", "exit":
       exitWindow()
     else:
-      ctx.cmdParam = @[param]
+      if param.len != 0:
+        ctx.cmdParam = @[param]
+      else:
+        ctx.cmdParam = @[]
       discard ctx.handlePluginCommand(cmd)

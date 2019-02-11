@@ -25,6 +25,7 @@ type
     path*: string
     load*: seq[string]
     processed*: HashSet[string]
+    window*: pointer
 
   Ctx* = ref object
     editor*: pointer
