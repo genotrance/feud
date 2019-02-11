@@ -3,7 +3,7 @@ import macros, os, sets, strformat, strutils, tables
 import nimterop/cimport
 
 import "."/globals
-export Plugin, Ctx, newShared, freeShared, newPtrChannel, closePtrChannel, toPtr
+export Plugin, Ctx, newShared, freeShared, newPtrChannel, closePtrChannel, toPtr, doException
 
 # Scintilla constants
 const

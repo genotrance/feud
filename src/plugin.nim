@@ -16,6 +16,8 @@ proc needsRebuild(sourcePath, dllPath: string): bool =
 proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   var
     path = ""
+    base = getAppDir()/"plugins"
+
   withLock pmonitor[].lock:
     path = pmonitor[].path
 
@@ -24,7 +26,11 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
       if not pmonitor[].run:
         break
 
-    for sourcePath in walkFiles(path/"*.nim"):
+    var
+      sourcePaths = toSeq(walkFiles(base/"*.nim"))
+    sourcePaths.add toSeq(walkFiles(base/path/"*.nim"))
+
+    for sourcePath in sourcePaths:
       let
         dllPath = sourcePath.dll
         name = sourcePath.splitFile().name
@@ -58,6 +64,7 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
       try:
         ctx.plugins[name].onUnload(ctx.plugins[name])
       except:
+        ctx.notify(ctx, getCurrentExceptionMsg())
         ctx.notify(ctx, &"Plugin '{name}' crashed in 'feudPluginUnload()'")
 
     ctx.plugins[name].handle.unloadLib()
@@ -76,27 +83,30 @@ proc notifyPlugins*(ctx: var Ctx) =
         plg.onNotify(plg)
         notified = true
       except:
-        ctx.unloadPlugin(plg.name)
+        ctx.notify(ctx, getCurrentExceptionMsg())
         ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
+        ctx.unloadPlugin(plg.name)
 
   if not notified:
-    echo ctx.cmdParam
+    if ctx.cmdParam.len != 0:
+      echo ctx.cmdParam[0]
+
+  ctx.cmdParam = @[]
 
 proc initPlugins*(ctx: var Ctx, path: string) =
   ctx.plugins = newTable[string, Plugin]()
   ctx.pluginData = newTable[string, pointer]()
 
-
   ctx.pmonitor = newShared[PluginMonitor]()
-  ctx.pmonitor[].path = path
   ctx.pmonitor[].lock.initLock()
   ctx.pmonitor[].run = true
+  ctx.pmonitor[].path = path
 
   ctx.pmonitor[].load = @[]
   ctx.pmonitor[].processed.init()
 
   ctx.notify = proc(ctx: var Ctx, msg: string) =
-    ctx.cmdParam = msg
+    ctx.cmdParam = @[msg]
     ctx.notifyPlugins()
 
   spawn monitorPlugins(ctx.pmonitor)
@@ -123,7 +133,7 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       count -= 1
 
     if fileExists(plg.path):
-      ctx.notify(ctx, "Plugin '{plg.name}' failed to unload")
+      ctx.notify(ctx, &"Plugin '{plg.name}' failed to unload")
       return
 
     moveFile(dllPath, plg.path)
@@ -142,7 +152,9 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       try:
         plg.onLoad()
       except:
+        ctx.notify(ctx, getCurrentExceptionMsg())
         ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
+        plg.handle.unloadLib()
         return
 
       plg.onUnload = cast[PCallback](plg.handle.symAddr("onUnload"))
@@ -185,6 +197,7 @@ proc tickPlugins(ctx: var Ctx) =
       try:
         plg.onTick(plg)
       except:
+        ctx.notify(ctx, getCurrentExceptionMsg())
         ctx.notify(ctx, &"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
         ctx.unloadPlugin(plg.name)
 
@@ -196,18 +209,18 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
         ctx.notify(ctx, pl.extractFilename)
     of "reload", "load":
       if ctx.cmdParam.len != 0:
-        if ctx.plugins.hasKey(ctx.cmdParam):
+        if ctx.plugins.hasKey(ctx.cmdParam[0]):
           withLock ctx.pmonitor[].lock:
-            ctx.pmonitor[].processed.excl ctx.cmdParam
+            ctx.pmonitor[].processed.excl ctx.cmdParam[0]
       else:
         withLock ctx.pmonitor[].lock:
           ctx.pmonitor[].processed.clear()
     of "unload":
       if ctx.cmdParam.len != 0:
-        if ctx.plugins.hasKey(ctx.cmdParam):
-          ctx.unloadPlugin(ctx.cmdParam)
+        if ctx.plugins.hasKey(ctx.cmdParam[0]):
+          ctx.unloadPlugin(ctx.cmdParam[0])
         else:
-          ctx.notify(ctx, &"Plugin '{ctx.cmdParam}' not found")
+          ctx.notify(ctx, &"Plugin '{ctx.cmdParam[0]}' not found")
       else:
         for pl in ctx.plugins.keys():
           ctx.unloadPlugin(pl)
@@ -221,6 +234,7 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
           try:
             plg.callbacks[cmd](plg)
           except:
+            ctx.notify(ctx, getCurrentExceptionMsg())
             ctx.notify(ctx, &"Plugin '{plg.name}' crashed in '{cmd}()'")
           break
 

@@ -44,14 +44,16 @@ proc initCtx(): Ctx =
   result.cMsg = cMsg
   result.handleCommand = handleCommand
 
-proc feudStart*() =
+proc feudStart*(remote = false) =
   var
     ctx = initCtx()
 
   initScintilla()
 
   ctx.createWindows()
-  ctx.initPlugins(getAppDir()/"plugins")
+  if remote:
+    ctx.cmdParam = @["tcp://*:3917"]
+  ctx.initPlugins("server")
   ctx.messageLoop(commandCallback, syncPlugins)
 
   ctx.stopPlugins()

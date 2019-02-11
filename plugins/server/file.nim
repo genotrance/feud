@@ -1,6 +1,6 @@
 import os, segfaults, strformat, strutils, tables
 
-import "../src"/pluginapi
+import "../../src"/pluginapi
 
 const MAX_BUFFER = 8192
 
@@ -57,7 +57,7 @@ proc findDocFromString(plg: var Plugin, srch: string): int =
 proc findDocFromParam(plg: var Plugin): int =
   var
     docs = plg.getDocs()
-    param = plg.ctx.cmdParam
+    param = plg.ctx.cmdParam[0]
 
   result =
     if param.len == 0:
@@ -109,11 +109,11 @@ proc loadFileContents(plg: var Plugin, path: string) =
 
 proc open(plg: var Plugin) {.feudCallback.} =
   let
-    path = plg.ctx.cmdParam.deepCopy()
+    path = plg.ctx.cmdParam[0].deepCopy()
 
   if "*" in path or "?" in path:
     for file in path.walkPattern():
-      plg.ctx.cmdParam = file
+      plg.ctx.cmdParam = @[file]
       plg.open()
   else:
     let
@@ -123,7 +123,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
     elif path.dirExists():
       for kind, file in path.walkDir():
         if kind == pcFile:
-          plg.ctx.cmdParam = file
+          plg.ctx.cmdParam = @[file]
           plg.open()
     else:
       if not fileExists(path):

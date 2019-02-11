@@ -20,9 +20,9 @@ type
     pluginData*: pointer
 
   PluginMonitor* = object
-    path*: string
     lock*: Lock
     run*: bool
+    path*: string
     load*: seq[string]
     processed*: HashSet[string]
 
@@ -39,7 +39,9 @@ type
     plugins*: TableRef[string, Plugin]
     pluginData*: TableRef[string, pointer]
 
-    cmdParam*: string
+    cmdParam*: seq[string]
+
+  FeudException* = object of Exception
 
 proc newShared*[T](): ptr T =
   result = cast[ptr T](allocShared0(sizeof(T)))
@@ -58,3 +60,7 @@ proc closePtrChannel*[T](sch: var ptr Channel[T]) =
 
 converter toPtr*(val: SomeInteger): pointer =
   return cast[pointer](val)
+
+template doException*(cond, msg) =
+  if not cond:
+    raise newException(FeudException, msg)
