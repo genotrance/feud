@@ -26,12 +26,16 @@ proc execMsg(ctx: var Ctx, cmd, param: string) =
     s, l, w: int
     wc: cstring
 
-  if not spl[0].toInt(s):
-    ctx.notify(ctx, "Bad integer value " & spl[0])
+  if SciDefs.hasKey(spl[0]):
+    s = SciDefs[spl[0]]
+  elif not spl[0].toInt(s):
+    ctx.notify(ctx, "Bad SCI value " & spl[0])
     return
 
   if spl.len > 1:
-    if not spl[1].toInt(l):
+    if SciDefs.hasKey(spl[1]):
+      l = SciDefs[spl[1]]
+    elif not spl[1].toInt(l):
       ctx.notify(ctx, "Bad integer value " & spl[1])
       return
 
