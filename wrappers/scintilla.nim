@@ -3,12 +3,11 @@ import os
 import nimterop/[cimport, git]
 
 const
-  baseDir = currentSourcePath().parentDir().parentDir()/"build"
-  sciDir = baseDir/"scintilla"
+  sciDir = currentSourcePath().parentDir().parentDir()/"build"/"scintilla"
 
 static:
   #cDebug()
-  downloadUrl("https://www.scintilla.org/scintilla412.zip", baseDir)
+  gitPull("https://github.com/mirror/scintilla", sciDir)
 
 cIncludeDir(sciDir/"include")
 cIncludeDir(sciDir/"src")
