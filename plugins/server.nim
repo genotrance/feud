@@ -1,8 +1,5 @@
 import locks, os, strformat, strutils, tables, threadpool
 
-when defined(Windows):
-  import winim/inc/[windef, winuser]
-
 import "../src"/pluginapi
 
 import ".."/wrappers/nng
@@ -18,7 +15,6 @@ type
     run: bool
     recvBuf: seq[string]
     sendBuf: seq[string]
-    window: pointer
 
 proc getServer(plg: var Plugin): ptr Server =
   return cast[ptr Server](plg.pluginData)
@@ -49,8 +45,6 @@ proc monitorServer(pserver: ptr Server, listen, dial: string) {.thread.} =
       if sz != 0:
         withLock pserver[].lock:
           pserver[].recvBuf.add $buf
-          when defined(Windows):
-            discard InvalidateRect(cast[HWND](pserver[].window), nil, 0)
       buf.nng_free(sz)
     elif ret == NNG_ETIMEDOUT:
       echo "Timed out"
@@ -92,8 +86,6 @@ proc initServer(plg: var Plugin) =
   if pserverCtx[].dial.len == 0:
     if plg.ctx.cmdParam.len > 1:
       pserverCtx[].dial = plg.ctx.cmdParam[1]
-
-  pserver[].window = plg.ctx.editor
 
   spawn monitorServer(pserver, pserverCtx[].listen, pserverCtx[].dial)
 

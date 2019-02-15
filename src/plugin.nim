@@ -3,7 +3,7 @@ import dynlib, locks, os, osproc, sequtils, sets, strformat, strutils, tables, t
 when defined(Windows):
   import winim/inc/[windef, winuser]
 
-import "."/[globals]
+import "."/[globals, utils]
 
 proc dll(sourcePath: string): string =
   let
@@ -11,20 +11,13 @@ proc dll(sourcePath: string): string =
 
   result = dir / (DynlibFormat % name)
 
-proc needsRebuild(sourcePath, dllPath: string): bool =
-  if not dllPath.fileExists() or
-    sourcePath.getLastModificationTime() > dllPath.getLastModificationTime():
-    result = true
-
 proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   var
     path = ""
-    window: pointer
     base = getAppDir()/"plugins"
 
   withLock pmonitor[].lock:
     path = pmonitor[].path
-    window = pmonitor[].window
 
   while true:
     withLock pmonitor[].lock:
@@ -38,14 +31,22 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
     for sourcePath in sourcePaths:
       let
         dllPath = sourcePath.dll
+        dllPathNew = dllPath & ".new"
         name = sourcePath.splitFile().name
-      if sourcePath.needsRebuild(dllPath):
-        let
+
+      if not dllPath.fileExists() or
+        sourcePath.getLastModificationTime() > dllPath.getLastModificationTime():
+        var
           relbuild =
             when defined(release):
               "-d:release"
             else:
               ""
+          output = ""
+          exitCode = 0
+
+        if not dllPathNew.fileExists() or
+          sourcePath.getLastModificationTime() > dllPathNew.getLastModificationTime():
           (output, exitCode) = execCmdEx(&"nim c --app:lib -o:{dllPath}.new {relbuild} {sourcePath}")
         if exitCode != 0:
           withLock pmonitor[].lock:
@@ -61,13 +62,10 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             pmonitor[].processed.incl name
             pmonitor[].load.add &"{dllPath}"
 
-    when defined(Windows):
-      if path == "server":
-        discard InvalidateRect(cast[HWND](window), nil, 0)
-    sleep(5000)
+    sleep(2000)
 
 proc unloadPlugin(ctx: var Ctx, name: string) =
-  if ctx.plugins.hasKey(name):
+  if ctx.plugins.hasKey(name) and ctx.plugins[name].dependents.len == 0:
     if not ctx.plugins[name].onUnload.isNil:
       try:
         ctx.plugins[name].onUnload(ctx.plugins[name])
@@ -75,6 +73,10 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{name}' crashed in 'feudPluginUnload()'")
 
     ctx.plugins[name].handle.unloadLib()
+    for dep in ctx.plugins[name].depends:
+      if ctx.plugins.hasKey(dep):
+        ctx.plugins[dep].dependents.excl name
+    ctx.plugins[name] = nil
     ctx.plugins.del(name)
 
     ctx.notify(ctx, &"Plugin '{name}' unloaded")
@@ -110,7 +112,6 @@ proc initPlugins*(ctx: var Ctx, path: string) =
 
   ctx.pmonitor[].load = @[]
   ctx.pmonitor[].processed.init()
-  ctx.pmonitor[].window = ctx.editor
 
   ctx.notify = proc(ctx: var Ctx, msg: string) =
     ctx.cmdParam = @[msg]
@@ -143,18 +144,47 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       ctx.notify(ctx, &"Plugin '{plg.name}' failed to unload")
       return
 
-    moveFile(dllPath, plg.path)
+    try:
+      moveFile(dllPath, plg.path)
+    except:
+      ctx.notify(ctx, &"Plugin '{plg.name}' dll copy failed")
+      return
 
   plg.handle = plg.path.loadLib()
+  sleep(100)
   plg.cindex.init()
+  plg.dependents.init()
   plg.callbacks = newTable[string, PCallback]()
+
   if plg.handle.isNil:
     ctx.notify(ctx, &"Plugin '{plg.name}' failed to load")
+    return
   else:
     let
+      onDepends = cast[PCallback](plg.handle.symAddr("onDepends"))
+
+    if not onDepends.isNil:
+      try:
+        plg.onDepends()
+      except:
+        ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginDepends()'")
+        plg.handle.unloadLib()
+        return
+
+      for dep in plg.depends:
+        if not ctx.plugins.hasKey(dep):
+          ctx.notify(ctx, &"Plugin '{plg.name}' dependency '{dep}' not loaded")
+          withLock ctx.pmonitor[].lock:
+            ctx.pmonitor[].processed.excl plg.name
+          plg.handle.unloadLib()
+          return
+
+    let
       onLoad = cast[PCallback](plg.handle.symAddr("onLoad"))
+
     if onLoad.isNil:
       ctx.notify(ctx, &"Plugin '{plg.name}' missing 'feudPluginLoad()'")
+      plg.handle.unloadLib()
     else:
       try:
         plg.onLoad()
@@ -173,16 +203,21 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
           ctx.notify(ctx, &"Plugin '{plg.name}' callback '{cb}' failed to load")
           plg.callbacks.del cb
 
-      ctx.notify(ctx, &"Plugin '{plg.name}' loaded (" & toSeq(plg.callbacks.keys()).join(", ") & ")")
+      ctx.plugins[plg.name] = plg
 
-    ctx.plugins[plg.name] = plg
+      for dep in plg.depends:
+        if ctx.plugins.hasKey(dep):
+          ctx.plugins[dep].dependents.incl plg.name
+
+      ctx.notify(ctx, &"Plugin '{plg.name}' loaded (" & toSeq(plg.callbacks.keys()).join(", ") & ")")
 
 proc stopPlugins*(ctx: var Ctx) =
   withLock ctx.pmonitor[].lock:
     ctx.pmonitor[].run = false
 
-  for pl in ctx.plugins.keys():
-    ctx.unloadPlugin(pl)
+  while ctx.plugins.len != 0:
+    for pl in ctx.plugins.keys():
+      ctx.unloadPlugin(pl)
 
   freeShared(ctx.pmonitor)
 

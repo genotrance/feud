@@ -1,7 +1,6 @@
 import cligen
 
-when defined(Windows):
-  import "src"/sci
+import "src"/sci
 
 proc main(
     remote: bool = false,

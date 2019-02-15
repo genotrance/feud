@@ -1,9 +1,6 @@
-import os, tables
+import os, strutils, tables
 
-when defined(Windows):
-  import "."/win
-
-import "."/[actions, globals, plugin]
+import "."/[globals, plugin, utils]
 
 import ".."/wrappers/scintilla
 
@@ -17,31 +14,27 @@ proc exitScintilla() =
   if Scintilla_ReleaseResources() == 0:
     raise newException(Exception, "Failed to exit Scintilla")
 
-proc commandCallback(ctx: var Ctx) =
+proc handleCommand*(ctx: var Ctx, command: string) =
   let
-    pos = SCI_GETCURRENTPOS.cMsg()
-    line = SCI_LINEFROMPOSITION.cMsg(pos)
-    length = SCI_LINELENGTH.cMsg(line)
+    spl = command.strip().split(" ", maxsplit=1)
+    cmd = spl[0]
 
-  if length != 0:
-    var
-      data = alloc0(length+1)
-    defer: data.dealloc()
+  var param = if spl.len == 2: spl[1] else: ""
 
-    if SCI_GETLINE.cMsg(line, data) == length:
-      handleCommand(ctx, $cast[cstring](data))
-
-proc notify(msg: string) =
-  let
-    msgn = "\n" & msg
-  SCI_APPENDTEXT.cMsg(msgn.len, msgn.cstring)
-  SCI_GOTOPOS.cMsg(SCI_GETLENGTH.cMsg())
+  case cmd:
+    of "quit", "exit":
+      ctx.run = false
+    else:
+      if param.len != 0:
+        ctx.cmdParam = @[param]
+      else:
+        ctx.cmdParam = @[]
+      discard ctx.handlePluginCommand(cmd)
 
 proc initCtx(): Ctx =
   result = new(Ctx)
 
-  result.eMsg = eMsg
-  result.cMsg = cMsg
+  result.run = true
   result.handleCommand = handleCommand
 
 proc feudStart*(remote = false) =
@@ -50,11 +43,13 @@ proc feudStart*(remote = false) =
 
   initScintilla()
 
-  ctx.createWindows()
   if remote:
     ctx.cmdParam = @["tcp://*:3917"]
   ctx.initPlugins("server")
-  ctx.messageLoop(commandCallback, syncPlugins)
+
+  while ctx.run:
+    ctx.syncPlugins()
+    sleep(10)
 
   ctx.stopPlugins()
   exitScintilla()

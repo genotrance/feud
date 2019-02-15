@@ -1,4 +1,4 @@
-import os, segfaults, strformat, strutils, tables
+import os, segfaults, sequtils, strformat, strutils, tables
 
 import "../../src"/pluginapi
 
@@ -15,19 +15,6 @@ type
 
 proc getDocs(plg: var Plugin): Docs =
   return getCtxData[Docs](plg)
-
-proc initDocs(plg: var Plugin) {.exportc, dynlib.} =
-  var
-    docs = plg.getDocs()
-
-  if docs.doclist.len == 0:
-    var
-      notif = new(Doc)
-    notif.path = "Notifications"
-    notif.docptr = plg.ctx.eMsg(SCI_GETDOCPOINTER).toPtr
-
-    docs.doclist.add notif
-    docs.current = 0
 
 proc findDocFromString(plg: var Plugin, srch: string): int =
   result = -1
@@ -54,10 +41,9 @@ proc findDocFromString(plg: var Plugin, srch: string): int =
         result = i
         break
 
-proc findDocFromParam(plg: var Plugin): int =
+proc findDocFromParam(plg: var Plugin, param: string): int =
   var
     docs = plg.getDocs()
-    param = plg.ctx.cmdParam[0]
 
   result =
     if param.len == 0:
@@ -81,9 +67,9 @@ proc switchDoc(plg: var Plugin, docid: int) =
   if docid < 0 or docid > docs.doclist.len-1 or docid == docs.current:
     return
 
-  discard plg.ctx.eMsg(SCI_ADDREFDOCUMENT, 0, docs.doclist[docs.current].docptr)
-  discard plg.ctx.eMsg(SCI_SETDOCPOINTER, 0, docs.doclist[docid].docptr)
-  discard plg.ctx.eMsg(SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
+  discard plg.ctx.msg(plg.ctx, SCI_ADDREFDOCUMENT, 0, docs.doclist[docs.current].docptr)
+  discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, docs.doclist[docid].docptr)
+  discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
 
   docs.current = docid
 
@@ -91,7 +77,7 @@ proc loadFileContents(plg: var Plugin, path: string) =
   if not fileExists(path):
     return
 
-  discard plg.ctx.eMsg(SCI_CLEARALL)
+  discard plg.ctx.msg(plg.ctx, SCI_CLEARALL)
   var
     buffer = newString(MAX_BUFFER)
     bytesRead = 0
@@ -100,51 +86,53 @@ proc loadFileContents(plg: var Plugin, path: string) =
   while true:
     bytesRead = readBuffer(f, addr buffer[0], MAX_BUFFER)
     if bytesRead == MAX_BUFFER:
-      discard plg.ctx.eMsg(SCI_ADDTEXT, bytesRead, addr buffer[0])
+      discard plg.ctx.msg(plg.ctx, SCI_ADDTEXT, bytesRead, addr buffer[0])
     else:
       buffer.setLen(bytesRead)
-      discard plg.ctx.eMsg(SCI_ADDTEXT, bytesRead, addr buffer[0])
+      discard plg.ctx.msg(plg.ctx, SCI_ADDTEXT, bytesRead, addr buffer[0])
       break
   f.close()
 
 proc open(plg: var Plugin) {.feudCallback.} =
   let
-    path = plg.ctx.cmdParam[0].deepCopy()
+    paths = plg.ctx.cmdParam.deepCopy()
 
-  if "*" in path or "?" in path:
-    for file in path.walkPattern():
-      plg.ctx.cmdParam = @[file]
+  for path in paths:
+    echo path
+    if "*" in path or "?" in path:
+      plg.ctx.cmdParam = toSeq(path.walkPattern())
       plg.open()
-  else:
-    let
-      docid = plg.findDocFromParam()
-    if docid > -1:
-      plg.switchDoc(docid)
-    elif path.dirExists():
-      for kind, file in path.walkDir():
-        if kind == pcFile:
-          plg.ctx.cmdParam = @[file]
-          plg.open()
     else:
-      if not fileExists(path):
-        plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
+      let
+        docid = plg.findDocFromParam(path)
+      if docid > -1:
+        plg.switchDoc(docid)
+      elif path.dirExists():
+        plg.ctx.cmdParam = @[]
+        for kind, file in path.walkDir():
+          if kind == pcFile:
+            plg.ctx.cmdParam.add file
+        plg.open()
       else:
-        var
-          docs = plg.getDocs()
-
-        if plg.findDocFromString(path) < 0:
+        if not fileExists(path):
+          plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
+        else:
           var
-            info = path.getFileInfo()
-            doc = new(Doc)
+            docs = plg.getDocs()
 
-          doc.path = path
-          doc.docptr = plg.ctx.eMsg(SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
+          if plg.findDocFromString(path) < 0:
+            var
+              info = path.getFileInfo()
+              doc = new(Doc)
 
-          docs.doclist.add doc
+            doc.path = path
+            doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
 
-        plg.switchDoc(docs.doclist.len-1)
+            docs.doclist.add doc
 
-        plg.loadFileContents(path)
+          plg.switchDoc(docs.doclist.len-1)
+
+          plg.loadFileContents(path)
 
 proc list(plg: var Plugin) {.feudCallback.} =
   var
@@ -159,9 +147,14 @@ proc list(plg: var Plugin) {.feudCallback.} =
 proc close(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
+    param =
+      if plg.ctx.cmdParam.len != 0:
+        plg.ctx.cmdParam[0]
+      else:
+        ""
 
   var
-    docid = plg.findDocFromParam()
+    docid = plg.findDocFromParam(param)
 
   if docid > 0:
     if docid == docs.current:
@@ -173,9 +166,20 @@ proc close(plg: var Plugin) {.feudCallback.} =
       if docid < docs.current:
         docs.current -= 1
 
-    discard plg.ctx.eMsg(SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
+    discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
     docs.doclist.del(docid)
 
-feudPluginLoad:
-  plg.initDocs()
+feudPluginDepends(["window"])
 
+feudPluginLoad:
+  var
+    docs = plg.getDocs()
+
+  if docs.doclist.len == 0:
+    var
+      notif = new(Doc)
+    notif.path = "Notifications"
+    notif.docptr = plg.ctx.msg(plg.ctx, SCI_GETDOCPOINTER).toPtr
+
+    docs.doclist.add notif
+    docs.current = 0

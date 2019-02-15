@@ -32,21 +32,3 @@ cCompile(sciDir/"lexers/*.cxx")
 
 cImport(sciDir/"include/Scintilla.h", recurse=true)
 cImport(sciDir/"include/SciLexer.h")
-
-const SciDefs* = (block:
-  var
-    scvr = initTable[string, int]()
-    path = currentSourcePath.parentDir().parentDir()/"build"/"scintilla"/"include"
-
-  for file in ["Scintilla.h", "SciLexer.h"]:
-    for line in staticRead(path/file).splitLines():
-      if "#define" in line:
-        var
-          spl = line.split(' ')
-        if spl.len == 3 and spl[1][0] == 'S':
-          let
-            parseProc = if "0x" in spl[2]: parseHexInt else: parseInt
-          scvr[spl[1]] = spl[2].parseProc()
-
-  scvr
-)
