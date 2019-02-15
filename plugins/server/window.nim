@@ -85,13 +85,13 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
       if spl.len > 2:
         if not spl[2].toInt(w):
           wc = spl[2].cstring
-          plg.ctx.notify(plg.ctx, $msg(plg.ctx, s, l, wc))
+          msg(plg.ctx, s, l, wc)
         else:
-          plg.ctx.notify(plg.ctx, $msg(plg.ctx, s, l, w))
+          msg(plg.ctx, s, l, w)
       else:
-        plg.ctx.notify(plg.ctx, $msg(plg.ctx, s, l))
+        msg(plg.ctx, s, l)
     else:
-      plg.ctx.notify(plg.ctx, $msg(plg.ctx, s))
+      msg(plg.ctx, s)
 
 proc setCurrentWindow(window: var Window, closeid: int) =
   if closeid > 0:
@@ -103,6 +103,28 @@ proc setCurrentWindow(window: var Window, closeid: int) =
     else:
       if closeid < window.current:
         window.current -= 1
+
+proc newWindow(plg: var Plugin) {.feudCallback.} =
+  var
+    window = plg.getWindow()
+
+  window.editors.add cast[pointer](createWindow())
+
+proc closeWindow(plg: var Plugin) {.feudCallback.} =
+  var
+    window = plg.getWindow()
+    winid = window.current
+
+  if plg.ctx.cmdParam.len != 0:
+    try:
+      winid = plg.ctx.cmdParam[0].parseInt()
+    except:
+      return
+
+  if winid < window.editors.len:
+    DestroyWindow(cast[HWND](window.editors[winid]))
+    window.setCurrentWindow(winid)
+    window.editors.delete(winid)
 
 feudPluginLoad:
   var
@@ -128,7 +150,7 @@ feudPluginTick:
     if IsWindow(cast[HWND](window.editors[i])) == 0:
       DestroyWindow(cast[HWND](window.editors[i]))
       window.setCurrentWindow(i)
-      discard window.editors.pop()
+      window.editors.delete(i)
   if window.editors.len == 1:
     plg.ctx.handleCommand(plg.ctx, "quit")
 

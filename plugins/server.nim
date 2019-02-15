@@ -100,6 +100,10 @@ proc stopServer(plg: var Plugin) =
 
   freeShared(pserver)
 
+proc restartServer(plg: var Plugin) {.feudCallback.} =
+  plg.stopServer()
+  plg.initServer()
+
 proc readServer(plg: var Plugin) =
   var
     pserver = plg.getServer()
