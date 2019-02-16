@@ -14,7 +14,7 @@ proc getWindow(plg: var Plugin): Window =
   return getPlgData[Window](plg)
 
 proc createWindow(name = "", show = true): HWND =
-  result = CreateWindow("Scintilla", name, WS_OVERLAPPEDWINDOW, 10, 10, 800, 600, 0, 0, GetModuleHandleW(nil), nil)
+  result = CreateWindow("Scintilla", name, WS_OVERLAPPEDWINDOW, 10, 10, 800, 800, 0, 0, GetModuleHandleW(nil), nil)
   doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
 
   if show:

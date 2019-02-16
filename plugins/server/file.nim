@@ -93,12 +93,15 @@ proc loadFileContents(plg: var Plugin, path: string) =
       break
   f.close()
 
+  plg.ctx.handleCommand(plg.ctx, "setLexer " & path)
+  if plg.ctx.cmdParam.len != 0:
+    plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
+
 proc open(plg: var Plugin) {.feudCallback.} =
   let
     paths = plg.ctx.cmdParam.deepCopy()
 
   for path in paths:
-    echo path
     if "*" in path or "?" in path:
       plg.ctx.cmdParam = toSeq(path.walkPattern())
       plg.open()
@@ -169,7 +172,7 @@ proc close(plg: var Plugin) {.feudCallback.} =
     discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
     docs.doclist.del(docid)
 
-feudPluginDepends(["window"])
+feudPluginDepends(["filetype", "theme", "window"])
 
 feudPluginLoad:
   var
