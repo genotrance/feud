@@ -1,4 +1,4 @@
-import locks, os, strformat, strutils, tables, threadpool
+import locks, os, strformat, strutils, tables
 
 import "../src"/pluginapi
 
@@ -8,8 +8,8 @@ type
   ServerCtx = ref object
     listen: string
     dial: string
+    thread: Thread[tuple[pserver: ptr Server, listen, dial: string]]
 
-type
   Server = object
     lock: Lock
     run: bool
@@ -19,7 +19,7 @@ type
 proc getServer(plg: var Plugin): ptr Server =
   return cast[ptr Server](plg.pluginData)
 
-proc monitorServer(pserver: ptr Server, listen, dial: string) {.thread.} =
+proc monitorServer(tparam: tuple[pserver: ptr Server, listen, dial: string]) {.thread.} =
   var
     socket: nng_socket
     listener: nng_listener
@@ -32,35 +32,35 @@ proc monitorServer(pserver: ptr Server, listen, dial: string) {.thread.} =
   ret = nng_bus0_open(addr socket)
   doException  ret == 0, &"Failed to open bus socket: {ret}"
 
-  if dial.len != 0:
-    ret = socket.nng_dial(dial, addr dialer, 0)
-    doException ret == 0, &"Failed to connect to {dial}: {ret}"
+  if tparam.dial.len != 0:
+    ret = socket.nng_dial(tparam.dial, addr dialer, 0)
+    doException ret == 0, &"Failed to connect to {tparam.dial}: {ret}"
   else:
-    ret = socket.nng_listen(listen, addr listener, 0)
-    doException ret == 0, &"Failed to listen on {listen}: {ret}"
+    ret = socket.nng_listen(tparam.listen, addr listener, 0)
+    doException ret == 0, &"Failed to listen on {tparam.listen}: {ret}"
 
   while run:
     ret = socket.nng_recv(addr buf, addr sz, (NNG_FLAG_NONBLOCK or NNG_FLAG_ALLOC).cint)
     if ret == 0:
       if sz != 0:
-        withLock pserver[].lock:
-          pserver[].recvBuf.add $buf
+        withLock tparam.pserver[].lock:
+          tparam.pserver[].recvBuf.add $buf
       buf.nng_free(sz)
     elif ret == NNG_ETIMEDOUT:
       echo "Timed out"
 
-    withLock pserver[].lock:
-      for i in pserver[].sendBuf:
+    withLock tparam.pserver[].lock:
+      for i in tparam.pserver[].sendBuf:
         ret = socket.nng_send(i.cstring, (i.len+1).cuint, NNG_FLAG_NONBLOCK.cint)
-      if pserver[].sendBuf.len != 0:
-        pserver[].sendBuf = @[]
+      if tparam.pserver[].sendBuf.len != 0:
+        tparam.pserver[].sendBuf = @[]
 
     sleep(100)
 
-    withLock pserver[].lock:
-      run = pserver[].run
+    withLock tparam.pserver[].lock:
+      run = tparam.pserver[].run
 
-  if dial.len != 0:
+  if tparam.dial.len != 0:
     discard dialer.nng_dialer_close()
   else:
     discard listener.nng_listener_close()
@@ -87,16 +87,17 @@ proc initServer(plg: var Plugin) =
     if plg.ctx.cmdParam.len > 1:
       pserverCtx[].dial = plg.ctx.cmdParam[1]
 
-  spawn monitorServer(pserver, pserverCtx[].listen, pserverCtx[].dial)
+  createThread(pserverCtx.thread, monitorServer, (pserver, pserverCtx[].listen, pserverCtx[].dial))
 
 proc stopServer(plg: var Plugin) =
   var
     pserver = plg.getServer()
+    pserverCtx = getCtxData[ServerCtx](plg)
 
   withLock pserver[].lock:
     pserver[].run = false
 
-  sync()
+  pserverCtx.thread.joinThread()
 
   freeShared(pserver)
 

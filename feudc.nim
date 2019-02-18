@@ -1,4 +1,4 @@
-import cligen, os, rdstdin, strformat, strutils, threadpool
+import cligen, os, rdstdin, strformat, strutils
 
 import "."/src/[globals, plugin]
 
@@ -70,11 +70,16 @@ proc main(
       else:
         &"tcp://*:3918"
 
+    thread: Thread[void]
+
   ctx.cmdParam = @[client, server]
   ctx.initPlugins("client")
 
-  spawn initCmd()
+  createThread(thread, initCmd)
+
   ctx.messageLoop()
+
+  thread.joinThread()
 
 when isMainModule:
   dispatch(main, help = {

@@ -1,9 +1,12 @@
-import dynlib, locks, os, osproc, sequtils, sets, strformat, strutils, tables, threadpool, times
+import dynlib, locks, os, osproc, sequtils, sets, strformat, strutils, tables, times
 
 when defined(Windows):
   import winim/inc/[windef, winuser]
 
 import "."/[globals, utils]
+
+var
+  gThread: Thread[ptr PluginMonitor]
 
 proc dll(sourcePath: string): string =
   let
@@ -117,7 +120,7 @@ proc initPlugins*(ctx: var Ctx, path: string) =
     ctx.cmdParam = @[msg]
     ctx.notifyPlugins()
 
-  spawn monitorPlugins(ctx.pmonitor)
+  createThread(gThread, monitorPlugins, ctx.pmonitor)
 
 proc loadPlugin(ctx: var Ctx, dllPath: string) =
   var
@@ -151,7 +154,6 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       return
 
   plg.handle = plg.path.loadLib()
-  sleep(100)
   plg.cindex.init()
   plg.dependents.init()
   plg.callbacks = newTable[string, PCallback]()
@@ -218,6 +220,8 @@ proc stopPlugins*(ctx: var Ctx) =
   while ctx.plugins.len != 0:
     for pl in ctx.plugins.keys():
       ctx.unloadPlugin(pl)
+
+  gThread.joinThread()
 
   freeShared(ctx.pmonitor)
 

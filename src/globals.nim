@@ -1,4 +1,4 @@
-import segfaults, dynlib, locks, sets, tables, threadpool
+import segfaults, dynlib, locks, sets, tables
 
 type
   Callback* = proc(ctx: var Ctx) {.nimcall.}
