@@ -16,6 +16,7 @@ type
     cindex*: HashSet[string]
     callbacks*: TableRef[string, PCallback]
 
+    onLoad*: PCallback
     onUnload*: PCallback
     onTick*: PCallback
     onNotify*: PCallback
@@ -27,6 +28,7 @@ type
     run*: bool
     path*: string
     load*: seq[string]
+    init*: seq[string]
     processed*: HashSet[string]
     window*: pointer
 
@@ -37,6 +39,7 @@ type
     notify*: proc(ctx: var Ctx, msg: string)
     handleCommand*: proc(ctx: var Ctx, command: string) {.nimcall.}
 
+    tick*: int
     pmonitor*: ptr PluginMonitor
     plugins*: TableRef[string, Plugin]
     pluginData*: TableRef[string, pointer]

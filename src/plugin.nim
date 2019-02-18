@@ -122,6 +122,54 @@ proc initPlugins*(ctx: var Ctx, path: string) =
 
   createThread(gThread, monitorPlugins, ctx.pmonitor)
 
+proc initPlugin(plg: var Plugin) =
+  if plg.onLoad.isNil:
+    let
+      onDepends = cast[PCallback](plg.handle.symAddr("onDepends"))
+
+    if not onDepends.isNil:
+      try:
+        plg.onDepends()
+      except:
+        plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginDepends()'")
+        plg.ctx.unloadPlugin(plg.name)
+        return
+
+      for dep in plg.depends:
+        if not plg.ctx.plugins.hasKey(dep):
+          plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' dependency '{dep}' not loaded")
+          withLock plg.ctx.pmonitor[].lock:
+            plg.ctx.pmonitor[].init.add plg.name
+          return
+
+    plg.onLoad = cast[PCallback](plg.handle.symAddr("onLoad"))
+    if plg.onLoad.isNil:
+      plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' missing 'feudPluginLoad()'")
+      plg.ctx.unloadPlugin(plg.name)
+    else:
+      try:
+        plg.onLoad(plg)
+      except:
+        plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
+        plg.ctx.unloadPlugin(plg.name)
+        return
+
+      plg.onUnload = cast[PCallback](plg.handle.symAddr("onUnload"))
+      plg.onTick = cast[PCallback](plg.handle.symAddr("onTick"))
+      plg.onNotify = cast[PCallback](plg.handle.symAddr("onNotify"))
+
+      for cb in plg.cindex:
+        plg.callbacks[cb] = cast[PCallback](plg.handle.symAddr(cb))
+        if plg.callbacks[cb].isNil:
+          plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' callback '{cb}' failed to load")
+          plg.callbacks.del cb
+
+      for dep in plg.depends:
+        if plg.ctx.plugins.hasKey(dep):
+          plg.ctx.plugins[dep].dependents.incl plg.name
+
+      plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' loaded (" & toSeq(plg.callbacks.keys()).join(", ") & ")")
+
 proc loadPlugin(ctx: var Ctx, dllPath: string) =
   var
     plg = new(Plugin)
@@ -162,56 +210,9 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
     ctx.notify(ctx, &"Plugin '{plg.name}' failed to load")
     return
   else:
-    let
-      onDepends = cast[PCallback](plg.handle.symAddr("onDepends"))
+    ctx.plugins[plg.name] = plg
 
-    if not onDepends.isNil:
-      try:
-        plg.onDepends()
-      except:
-        ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginDepends()'")
-        plg.handle.unloadLib()
-        return
-
-      for dep in plg.depends:
-        if not ctx.plugins.hasKey(dep):
-          ctx.notify(ctx, &"Plugin '{plg.name}' dependency '{dep}' not loaded")
-          withLock ctx.pmonitor[].lock:
-            ctx.pmonitor[].processed.excl plg.name
-          plg.handle.unloadLib()
-          return
-
-    let
-      onLoad = cast[PCallback](plg.handle.symAddr("onLoad"))
-
-    if onLoad.isNil:
-      ctx.notify(ctx, &"Plugin '{plg.name}' missing 'feudPluginLoad()'")
-      plg.handle.unloadLib()
-    else:
-      try:
-        plg.onLoad()
-      except:
-        ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
-        plg.handle.unloadLib()
-        return
-
-      plg.onUnload = cast[PCallback](plg.handle.symAddr("onUnload"))
-      plg.onTick = cast[PCallback](plg.handle.symAddr("onTick"))
-      plg.onNotify = cast[PCallback](plg.handle.symAddr("onNotify"))
-
-      for cb in plg.cindex:
-        plg.callbacks[cb] = cast[PCallback](plg.handle.symAddr(cb))
-        if plg.callbacks[cb].isNil:
-          ctx.notify(ctx, &"Plugin '{plg.name}' callback '{cb}' failed to load")
-          plg.callbacks.del cb
-
-      ctx.plugins[plg.name] = plg
-
-      for dep in plg.depends:
-        if ctx.plugins.hasKey(dep):
-          ctx.plugins[dep].dependents.incl plg.name
-
-      ctx.notify(ctx, &"Plugin '{plg.name}' loaded (" & toSeq(plg.callbacks.keys()).join(", ") & ")")
+    plg.initPlugin()
 
 proc stopPlugins*(ctx: var Ctx) =
   withLock ctx.pmonitor[].lock:
@@ -226,13 +227,26 @@ proc stopPlugins*(ctx: var Ctx) =
   freeShared(ctx.pmonitor)
 
 proc reloadPlugins(ctx: var Ctx) =
+  var
+    load: seq[string]
+    init: seq[string]
+
   withLock ctx.pmonitor[].lock:
-    for i in ctx.pmonitor[].load:
-      if i.fileExists():
-        ctx.loadPlugin(i)
-      else:
-        ctx.notify(ctx, i)
+    load = ctx.pmonitor[].load
+    init = ctx.pmonitor[].init
+
     ctx.pmonitor[].load = @[]
+    ctx.pmonitor[].init = @[]
+
+  for i in load:
+    if i.fileExists():
+      ctx.loadPlugin(i)
+    else:
+      ctx.notify(ctx, i)
+
+  for i in init:
+    if ctx.plugins.hasKey(i):
+      ctx.plugins[i].initPlugin()
 
 proc tickPlugins(ctx: var Ctx) =
   for pl in ctx.plugins.keys():
@@ -284,5 +298,9 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
           break
 
 proc syncPlugins*(ctx: var Ctx) =
-  ctx.reloadPlugins()
+  ctx.tick += 1
+  if ctx.tick == 25:
+    ctx.tick = 0
+    ctx.reloadPlugins()
+
   ctx.tickPlugins()
