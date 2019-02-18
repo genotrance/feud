@@ -109,6 +109,9 @@ proc newWindow(plg: var Plugin) {.feudCallback.} =
     window = plg.getWindow()
 
   window.editors.add cast[pointer](createWindow())
+  window.current = window.editors.len-1
+
+  plg.ctx.handleCommand(plg.ctx, "setTheme")
 
 proc closeWindow(plg: var Plugin) {.feudCallback.} =
   var

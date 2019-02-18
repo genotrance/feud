@@ -75,7 +75,5 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
 
 feudPluginDepends(["window"])
 
-feudPluginLoad()
-
-# feudPluginUnload:
-  # discard plg.ctx.msg(plg.ctx, SCI_STYLERESETDEFAULT)
+feudPluginLoad:
+  plg.setTheme()
