@@ -13,7 +13,7 @@ requires "nim >= 0.19.0", "nimterop >= 0.1.0", "winim >= 2.5.2", "cligen >= 0.9.
 
 import strutils
 
-proc cleanDll() =
+task cleandll, "Clean DLLs":
   var
     dll = ".dll"
 
@@ -27,9 +27,6 @@ proc cleanDll() =
       if dll in file:
         rmFile file
 
-task cleandll, "Clean DLLs":
-  cleanDll()
-
 task clean, "Clean all":
   var
     exe =
@@ -40,7 +37,13 @@ task clean, "Clean all":
 
   rmFile "feud" & exe
   rmFile "feudc" & exe
-  cleanDll()
+  cleandllTask()
+
+task release, "Release build":
+  cleanTask()
+  exec "nim c -d:release feud"
+  exec "nim c -d:release feudc"
+  exec "feud"
 
 task debug, "Debug build":
   exec "nim c --debugger:native feud"
