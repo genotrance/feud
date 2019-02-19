@@ -137,6 +137,28 @@ proc open(plg: var Plugin) {.feudCallback.} =
 
           plg.loadFileContents(path)
 
+proc save(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+
+  if docs.doclist.len != 0 and docs.current != 0:
+    discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 1.toPtr)
+
+    let
+      doc = docs.doclist[docs.current]
+      data = cast[cstring](plg.ctx.msg(plg.ctx, SCI_GETCHARACTERPOINTER))
+
+    try:
+      var
+        f = open(doc.path, fmWrite)
+      f.write(data)
+      f.close()
+      plg.ctx.notify(plg.ctx, &"Saved {doc.path}")
+    except:
+      plg.ctx.notify(plg.ctx, &"Failed to save {doc.path}")
+
+    discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 0.toPtr)
+
 proc list(plg: var Plugin) {.feudCallback.} =
   var
     lout = ""
