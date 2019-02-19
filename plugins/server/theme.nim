@@ -19,9 +19,14 @@ const
 
     "STRING": "0xE6DB74",
     "TRIPLE": "0xE6DB74",
+    "TRIPLEDOUBLE": "0xE6DB74",
+
+    "STRINGEOL": "0x0000FF",
+    "NUMERROR": "0x0000FF",
 
     "OPERATOR": "0x66D9EF",
-    "IDENTIFIER": "0xFFFFFF"
+    "IDENTIFIER": "0xFFFFFF",
+    "FUNCNAME": "0xFFFFFF"
   }.toTable()
 
   gBold = @["COMMENTDOC", "COMMENTLINEDOC", "OPERATOR"]
@@ -54,7 +59,15 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
   plg.doSet(&"""
     SCI_STYLESETFORE STYLE_DEFAULT {fore}
     SCI_STYLESETBACK STYLE_DEFAULT {back}
-    SCI_SETCARETFORE {fore}
+    SCI_SETCARETFORE 0xFFFFFF
+  """)
+
+  # Line numbers
+  plg.doSet(&"""
+    SCI_SETMARGINTYPEN 0 1
+    SCI_SETMARGINWIDTHN 0 32
+    SCI_STYLESETFORE STYLE_LINENUMBER {fore}
+    SCI_STYLESETBACK STYLE_LINENUMBER {back}
   """)
 
   if lexer.len != 0:
