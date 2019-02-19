@@ -128,7 +128,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
               info = path.getFileInfo()
               doc = new(Doc)
 
-            doc.path = path
+            doc.path = path.deepCopy()
             doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
 
             docs.doclist.add doc
@@ -193,6 +193,14 @@ proc close(plg: var Plugin) {.feudCallback.} =
 
     discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
     docs.doclist.del(docid)
+
+proc closeAll(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+
+  while docs.doclist.len != 1:
+    plg.ctx.cmdParam = @[$(docs.doclist.len-1)]
+    plg.close()
 
 feudPluginDepends(["filetype", "theme", "window"])
 

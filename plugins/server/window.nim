@@ -61,13 +61,16 @@ proc toInt(sval: string, ival: var int): bool =
     discard
 
 proc eMsg(plg: var Plugin) {.feudCallback.} =
-  for param in plg.ctx.cmdParam:
+  var
+    params = plg.ctx.cmdParam.deepCopy()
+  for param in params:
     let
       spl = param.split(" ", maxsplit=3)
 
     var
       s, l, w: int
       wc: cstring
+      ret: int
 
     if SciDefs.hasKey(spl[0]):
       s = SciDefs[spl[0]]
@@ -85,13 +88,15 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
       if spl.len > 2:
         if not spl[2].toInt(w):
           wc = spl[2].cstring
-          msg(plg.ctx, s, l, wc)
+          ret = msg(plg.ctx, s, l, wc)
         else:
-          msg(plg.ctx, s, l, w)
+          ret = msg(plg.ctx, s, l, w)
       else:
-        msg(plg.ctx, s, l)
+        ret = msg(plg.ctx, s, l)
     else:
-      msg(plg.ctx, s)
+      ret = msg(plg.ctx, s)
+
+    plg.ctx.notify(plg.ctx, "Returned: " & $ret)
 
 proc setCurrentWindow(window: var Window, closeid: int) =
   if closeid > 0:
