@@ -16,6 +16,7 @@ type
     cindex*: HashSet[string]
     callbacks*: TableRef[string, PCallback]
 
+    onDepends*: PCallback
     onLoad*: PCallback
     onUnload*: PCallback
     onTick*: PCallback

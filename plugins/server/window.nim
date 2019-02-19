@@ -149,13 +149,14 @@ feudPluginTick:
     discard TranslateMessage(addr msg)
     discard DispatchMessageW(addr msg)
 
-  for i in countdown(window.editors.len-1, 0):
-    if IsWindow(cast[HWND](window.editors[i])) == 0:
-      DestroyWindow(cast[HWND](window.editors[i]))
-      window.setCurrentWindow(i)
-      window.editors.delete(i)
-  if window.editors.len == 1:
-    plg.ctx.handleCommand(plg.ctx, "quit")
+  if plg.ctx.tick mod 20 == 0:
+    for i in countdown(window.editors.len-1, 0):
+      if IsWindow(cast[HWND](window.editors[i])) == 0:
+        DestroyWindow(cast[HWND](window.editors[i]))
+        window.setCurrentWindow(i)
+        window.editors.delete(i)
+    if window.editors.len == 1:
+      plg.ctx.handleCommand(plg.ctx, "quit")
 
 feudPluginUnload:
   var

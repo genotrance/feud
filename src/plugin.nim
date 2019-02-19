@@ -124,23 +124,28 @@ proc initPlugins*(ctx: var Ctx, path: string) =
 
 proc initPlugin(plg: var Plugin) =
   if plg.onLoad.isNil:
-    let
-      onDepends = cast[PCallback](plg.handle.symAddr("onDepends"))
+    var
+      once = false
 
-    if not onDepends.isNil:
-      try:
-        plg.onDepends()
-      except:
-        plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginDepends()'")
-        plg.ctx.unloadPlugin(plg.name)
-        return
+    if plg.onDepends.isNil:
+      once = true
+      plg.onDepends = cast[PCallback](plg.handle.symAddr("onDepends"))
 
-      for dep in plg.depends:
-        if not plg.ctx.plugins.hasKey(dep):
-          plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' dependency '{dep}' not loaded")
-          withLock plg.ctx.pmonitor[].lock:
-            plg.ctx.pmonitor[].init.add plg.name
+      if not plg.onDepends.isNil:
+        try:
+          plg.onDepends(plg)
+        except:
+          plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginDepends()'")
+          plg.ctx.unloadPlugin(plg.name)
           return
+
+    for dep in plg.depends:
+      if not plg.ctx.plugins.hasKey(dep):
+        if once:
+          plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' dependency '{dep}' not loaded")
+        withLock plg.ctx.pmonitor[].lock:
+          plg.ctx.pmonitor[].init.add plg.name
+        return
 
     plg.onLoad = cast[PCallback](plg.handle.symAddr("onLoad"))
     if plg.onLoad.isNil:
