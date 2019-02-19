@@ -143,8 +143,6 @@ proc notifyClient(plg: var Plugin) =
     if mode == "server":
       withLock pserver[].lock:
         pserver[].sendBuf.add plg.ctx.cmdParam[0]
-    else:
-      echo plg.ctx.cmdParam[0]
 
 feudPluginLoad:
   plg.initServer()

@@ -40,10 +40,8 @@ task clean, "Clean all":
   cleandllTask()
 
 task release, "Release build":
-  cleanTask()
   exec "nim c -d:release feud"
   exec "nim c -d:release feudc"
-  exec "feud"
 
 task debug, "Debug build":
   exec "nim c --debugger:native feud"
