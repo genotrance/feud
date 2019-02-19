@@ -70,6 +70,12 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
     SCI_STYLESETBACK STYLE_LINENUMBER {back}
   """)
 
+  # Horizontal scroll
+  plg.doSet(&"""
+    SCI_SETSCROLLWIDTH 1
+    SCI_SETSCROLLWIDTHTRACKING 1
+  """)
+
   if lexer.len != 0:
     let
       prefix = &"SCE_{lexer}_"
