@@ -2,6 +2,9 @@ import strformat, strutils, tables
 
 import "../../src"/pluginapi
 
+proc toRgb(bgr: string): string =
+  return bgr[0 .. 1] & bgr[6 .. 7] & bgr[4 .. 5] & bgr[2 .. 3]
+
 const
   gTheme = {
     "DEFAULT": "0xDDDDDD",
@@ -31,12 +34,37 @@ const
 
   gBold = @["COMMENTDOC", "COMMENTLINEDOC", "OPERATOR"]
 
-proc toRgb(bgr: string): string =
-  return bgr[0 .. 1] & bgr[6 .. 7] & bgr[4 .. 5] & bgr[2 .. 3]
+  gFore = "0xABB2BF".toRgb().parseHexInt()
+  gBack = "0x282C34".toRgb().parseHexInt()
 
 proc doSet(plg: var Plugin, cmds: string) =
   for cmd in cmds.splitLines():
     plg.ctx.handleCommand(plg.ctx, "eMsg " & cmd.strip())
+
+template doSet(msgID, wp, lp) =
+  discard plg.ctx.msg(plg.ctx, msgID, wp, lp)
+
+template doSet(msgID, wp, lp, win) =
+  discard plg.ctx.msg(plg.ctx, msgID, wp, lp, win)
+
+proc setPopupTheme(plg: var Plugin) {.feudCallback.} =
+  # Horizontal scroll
+  doSet(SCI_SETSCROLLWIDTH, 1, nil, 0)
+  doSet(SCI_SETSCROLLWIDTHTRACKING, 1, nil, 0)
+
+  # No margins
+  doSet(SCI_SETMARGINWIDTHN, 1, nil, 0)
+
+  # Font
+  doSet(SCI_STYLESETFONT, STYLE_DEFAULT, "Consolas".cstring, 0)
+  doSet(SCI_STYLESETSIZE, STYLE_DEFAULT, 12, 0)
+
+  # Basic colors
+  doSet(SCI_STYLESETFORE, 0, gBack, 0)
+  doSet(SCI_STYLESETBACK, 0, gFore, 0)
+  doSet(SCI_STYLESETFORE, STYLE_DEFAULT, gBack, 0)
+  doSet(SCI_STYLESETBACK, STYLE_DEFAULT, gFore, 0)
+  doSet(SCI_SETCARETFORE, 0xFFFFFF, 0, 0)
 
 proc setTheme(plg: var Plugin) {.feudCallback.} =
   let
@@ -46,35 +74,26 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
       else:
         ""
 
-    fore = "0xABB2BF".toRgb()
-    back = "0x282C34".toRgb()
-
   # Font
-  plg.doSet("""
-    SCI_STYLESETFONT STYLE_DEFAULT Consolas
-    SCI_STYLESETSIZE STYLE_DEFAULT 10
-  """)
+  doSet(SCI_STYLESETFONT, STYLE_DEFAULT, "Consolas".cstring)
+  doSet(SCI_STYLESETSIZE, STYLE_DEFAULT, 10)
 
   # Basic colors
-  plg.doSet(&"""
-    SCI_STYLESETFORE STYLE_DEFAULT {fore}
-    SCI_STYLESETBACK STYLE_DEFAULT {back}
-    SCI_SETCARETFORE 0xFFFFFF
-  """)
+  doSet(SCI_STYLESETFORE, 0, gFore)
+  doSet(SCI_STYLESETBACK, 0, gBack)
+  doSet(SCI_STYLESETFORE, STYLE_DEFAULT, gFore)
+  doSet(SCI_STYLESETBACK, STYLE_DEFAULT, gBack)
+  doSet(SCI_SETCARETFORE, 0xFFFFFF, 0)
 
   # Line numbers
-  plg.doSet(&"""
-    SCI_SETMARGINTYPEN 0 1
-    SCI_SETMARGINWIDTHN 0 32
-    SCI_STYLESETFORE STYLE_LINENUMBER {fore}
-    SCI_STYLESETBACK STYLE_LINENUMBER {back}
-  """)
+  doSet(SCI_SETMARGINTYPEN, 0, 1)
+  doSet(SCI_SETMARGINWIDTHN, 0, 32)
+  doSet(SCI_STYLESETFORE, STYLE_LINENUMBER, gFore)
+  doSet(SCI_STYLESETBACK, STYLE_LINENUMBER, gBack)
 
   # Horizontal scroll
-  plg.doSet(&"""
-    SCI_SETSCROLLWIDTH 1
-    SCI_SETSCROLLWIDTHTRACKING 1
-  """)
+  doSet(SCI_SETSCROLLWIDTH, 1, 0)
+  doSet(SCI_SETSCROLLWIDTHTRACKING, 1, 0)
 
   if lexer.len != 0:
     let
@@ -86,7 +105,7 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
       if SciDefs.hasKey(key):
         plg.doSet(&"""
           SCI_STYLESETFORE {key} {gTheme[i].toRgb()}
-          SCI_STYLESETBACK {key} {back}
+          SCI_STYLESETBACK {key} {gBack}
         """)
 
         if i in gBold:
@@ -95,4 +114,5 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
 feudPluginDepends(["window"])
 
 feudPluginLoad:
+  plg.setPopupTheme()
   plg.setTheme()

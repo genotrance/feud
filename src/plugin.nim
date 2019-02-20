@@ -71,7 +71,10 @@ proc hasCallback(plg: var Plugin, name: string): bool {.inline.} =
   return plg.callbacks.hasKey(name) and not plg.callbacks[name].isNil
 
 proc unloadPlugin(ctx: var Ctx, name: string) =
-  if ctx.plugins.hasKey(name) and ctx.plugins[name].dependents.len == 0:
+  if ctx.plugins.hasKey(name):
+    for dep in ctx.plugins[name].dependents:
+      ctx.notify(ctx, &"Plugin '{dep}' depends on '{name}' and might crash")
+
     if ctx.plugins[name].hasCallback("onUnload"):
       try:
         ctx.plugins[name].callbacks["onUnload"](ctx.plugins[name])

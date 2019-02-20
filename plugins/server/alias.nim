@@ -46,6 +46,10 @@ proc alias(plg: var Plugin) {.feudCallback.} =
       if spl.len == 2:
         aliases.atable[alias] = spl[1].strip()
         plg.setupAlias(alias)
+      else:
+        aliases.atable.del(alias)
+        plg.cindex.excl alias
+        plg.callbacks.del(alias)
 
 feudPluginLoad:
   var
