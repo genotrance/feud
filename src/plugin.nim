@@ -132,7 +132,7 @@ proc initPlugin(plg: var Plugin) =
 
     if not plg.hasCallback("onDepends"):
       once = true
-      plg.callbacks["onDepends"] = cast[PCallback](plg.handle.symAddr("onDepends"))
+      plg.callbacks["onDepends"] = plg.handle.symAddr("onDepends").toCallback()
 
       if plg.hasCallback("onDepends"):
         try:
@@ -150,7 +150,7 @@ proc initPlugin(plg: var Plugin) =
           plg.ctx.pmonitor[].init.add plg.name
         return
 
-    plg.callbacks["onLoad"] = cast[PCallback](plg.handle.symAddr("onLoad"))
+    plg.callbacks["onLoad"] = plg.handle.symAddr("onLoad").toCallback()
     if not plg.hasCallback("onLoad"):
       plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' missing 'feudPluginLoad()'")
       plg.ctx.unloadPlugin(plg.name)
@@ -162,12 +162,12 @@ proc initPlugin(plg: var Plugin) =
         plg.ctx.unloadPlugin(plg.name)
         return
 
-      plg.callbacks["onUnload"] = cast[PCallback](plg.handle.symAddr("onUnload"))
-      plg.callbacks["onTick"] = cast[PCallback](plg.handle.symAddr("onTick"))
-      plg.callbacks["onNotify"] = cast[PCallback](plg.handle.symAddr("onNotify"))
+      plg.callbacks["onUnload"] = plg.handle.symAddr("onUnload").toCallback()
+      plg.callbacks["onTick"] = plg.handle.symAddr("onTick").toCallback()
+      plg.callbacks["onNotify"] = plg.handle.symAddr("onNotify").toCallback()
 
       for cb in plg.cindex:
-        plg.callbacks[cb] = cast[PCallback](plg.handle.symAddr(cb))
+        plg.callbacks[cb] = plg.handle.symAddr(cb).toCallback()
         if plg.callbacks[cb].isNil:
           plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' callback '{cb}' failed to load")
           plg.callbacks.del cb
@@ -212,7 +212,7 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
   plg.handle = plg.path.loadLib()
   plg.cindex.init()
   plg.dependents.init()
-  plg.callbacks = newTable[string, PCallback]()
+  plg.callbacks = newTable[string, proc(plg: var Plugin)]()
 
   if plg.handle.isNil:
     ctx.notify(ctx, &"Plugin '{plg.name}' failed to load")

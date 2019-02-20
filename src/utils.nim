@@ -21,3 +21,8 @@ converter toPtr*(val: SomeInteger): pointer =
 template doException*(cond, msg) =
   if not cond:
     raise newException(FeudException, msg)
+
+proc toCallback*(callback: pointer): proc(plg: var Plugin) =
+  if not callback.isNil:
+    result = proc(plg: var Plugin) =
+      cast[proc(plg: var Plugin) {.cdecl.}](callback)(plg)

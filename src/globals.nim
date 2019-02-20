@@ -1,9 +1,6 @@
 import segfaults, dynlib, locks, sets, tables
 
 type
-  Callback* = proc(ctx: var Ctx) {.nimcall.}
-  PCallback* = proc(plg: var Plugin) {.cdecl.}
-
   Plugin* = ref object
     ctx*: Ctx
     name*: string
@@ -14,7 +11,7 @@ type
     dependents*: HashSet[string]
 
     cindex*: HashSet[string]
-    callbacks*: TableRef[string, PCallback]
+    callbacks*: TableRef[string, proc(plg: var Plugin)]
     pluginData*: pointer
 
   PluginMonitor* = object
