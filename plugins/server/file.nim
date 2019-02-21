@@ -202,6 +202,32 @@ proc closeAll(plg: var Plugin) {.feudCallback.} =
     plg.ctx.cmdParam = @[$(docs.doclist.len-1)]
     plg.close()
 
+proc next(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+
+  if docs.doclist.len != 1:
+    var
+      docid = docs.current
+    docid += 1
+    if docid == docs.doclist.len:
+      docid = 0
+
+    plg.switchDoc(docid)
+
+proc prev(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+
+  if docs.doclist.len != 1:
+    var
+      docid = docs.current
+    docid -= 1
+    if docid < 0:
+      docid = docs.doclist.len-1
+
+    plg.switchDoc(docid)
+
 feudPluginDepends(["filetype", "theme", "window"])
 
 feudPluginLoad:
@@ -213,6 +239,7 @@ feudPluginLoad:
       notif = new(Doc)
     notif.path = "Notifications"
     notif.docptr = plg.ctx.msg(plg.ctx, SCI_GETDOCPOINTER).toPtr
+    discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, notif.docptr, 1)
 
     docs.doclist.add notif
     docs.current = 0

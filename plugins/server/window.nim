@@ -43,7 +43,7 @@ proc msg*(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil
   return SendMessage(cast[HWND](window.editors[winid]), cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam))
 
 proc createPopup(): HWND =
-  result = CreateWindow("Scintilla", "", WS_BORDER, 10, 10, 800, 50, 0, 0, GetModuleHandleW(nil), nil)
+  result = CreateWindow("Scintilla", "", WS_BORDER, 10, 10, 800, 30, 0, 0, GetModuleHandleW(nil), nil)
   doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
 
   var
@@ -54,7 +54,7 @@ proc createPopup(): HWND =
   doException result.UpdateWindow() != 0, "UpdateWindow() failed with " & $GetLastError()
 
 proc createWindow(name = "", show = true): HWND =
-  result = CreateWindow("Scintilla", name, WS_OVERLAPPEDWINDOW, 10, 10, 800, 800, 0, 0, GetModuleHandleW(nil), nil)
+  result = CreateWindow("Scintilla", name, WS_OVERLAPPEDWINDOW, 10, 10, 1200, 800, 0, 0, GetModuleHandleW(nil), nil)
   doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
 
   if show:
@@ -146,14 +146,30 @@ proc closeWindow(plg: var Plugin) {.feudCallback.} =
     window.setCurrentWindow(winid)
     window.editors.delete(winid)
 
+proc positionPopup(hwnd: HWND) =
+  var
+    fghwnd = GetForegroundWindow()
+    rect: RECT
+
+  if GetWindowRect(fghwnd, addr rect) == 1:
+    discard hwnd.SetWindowPos(
+      fghwnd,
+      rect.left+25,
+      rect.bottom-rect.top-40,
+      rect.right-rect.left-50,
+      30,
+      SWP_SHOWWINDOW)
+
 proc togglePopup(plg: var Plugin) {.feudCallback.} =
   var
     window = plg.getWindow()
     hwnd = cast[HWND](window.editors[0])
 
   if hwnd.IsWindowVisible() == 1:
+    msg(plg.ctx, SCI_CLEARALL, windowid=0)
     hwnd.ShowWindow(SW_HIDE)
   else:
+    hwnd.positionPopup()
     hwnd.ShowWindow(SW_SHOW)
 
 proc hotkey(plg: var Plugin) {.feudCallback.} =
@@ -203,6 +219,25 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
         else:
           window.hotkeys.del(id)
 
+proc execPopup(plg: var Plugin) =
+  let
+    length = msg(plg.ctx, SCI_GETLENGTH, windowID = 0)
+  if length != 0:
+    var
+      data = alloc0(length+1)
+    defer: data.dealloc()
+
+    if msg(plg.ctx, SCI_GETTEXT, length+1, data, 0) == length:
+      plg.togglePopup()
+      plg.ctx.handleCommand(plg.ctx, ($cast[cstring](data)).strip())
+
+# proc setTitle(plg: var Plugin) {.feudCallback.} =
+  # var
+    # window = plg.getWindow()
+    # winid = window.current
+  # if plg.ctx.cmdParam.len != 0:
+    # SendMessage(cast[HWND](window.editors[winid]), WM_SETTEXT, 0, cast[LPARAM](plg.ctx.cmdParam[0]))
+
 feudPluginLoad:
   var
     window = plg.getWindow()
@@ -231,8 +266,14 @@ feudPluginTick:
         id = msg.wparam.int
       if window.hotkeys.hasKey(id):
         plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
-    elif msg.hwnd == cast[HWND](window.editors[0]) and msg.message == WM_KEYDOWN and msg.wparam == VK_ESCAPE:
-      plg.togglePopup()
+    elif msg.hwnd == cast[HWND](window.editors[0]) and msg.message == WM_KEYDOWN:
+      if msg.wparam == VK_ESCAPE:
+        plg.togglePopup()
+      elif msg.wparam == VK_RETURN:
+        plg.execPopup()
+      else:
+        discard TranslateMessage(addr msg)
+        discard DispatchMessageW(addr msg)
     else:
       discard TranslateMessage(addr msg)
       discard DispatchMessageW(addr msg)
@@ -245,6 +286,12 @@ feudPluginTick:
         window.editors.delete(i)
     if window.editors.len == 2:
       plg.ctx.handleCommand(plg.ctx, "quit")
+
+feudPluginNotify:
+  var
+    params = plg.ctx.cmdParam.deepCopy()
+  for param in params:
+    msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & "\n").cstring, windowid=1)
 
 feudPluginUnload:
   var
@@ -263,29 +310,3 @@ feudPluginUnload:
   freePlgData[Window](plg)
 
   plg.ctx.msg = nil
-
-# proc setEditorTitle*(title: string) =
-  # gWin.editor.SetWindowText(title.newWideCString)
-
-# proc setCommandTitle*(title: string) =
-  # gWin.command.SetWindowText(title.newWideCString)
-
-# proc commandCallback(ctx: var Ctx) =
-  # let
-    # pos = SCI_GETCURRENTPOS.cMsg()
-    # line = SCI_LINEFROMPOSITION.cMsg(pos)
-    # length = SCI_LINELENGTH.cMsg(line)
-
-  # if length != 0:
-    # var
-      # data = alloc0(length+1)
-    # defer: data.dealloc()
-
-    # if SCI_GETLINE.cMsg(line, data) == length:
-      # handleCommand(ctx, $cast[cstring](data))
-
-# proc notify(msg: string) =
-  # let
-    # msgn = "\n" & msg
-  # SCI_APPENDTEXT.cMsg(msgn.len, msgn.cstring)
-  # SCI_GOTOPOS.cMsg(SCI_GETLENGTH.cMsg())
