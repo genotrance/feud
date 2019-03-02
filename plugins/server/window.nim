@@ -8,6 +8,7 @@ import "../../src"/pluginapi
 type
   Window = ref object
     current*: int
+    frames*: seq[pointer]
     editors*: seq[pointer]
     hotkeys*: TableRef[int, tuple[hotkey, callback: string]]
 
@@ -42,6 +43,70 @@ proc msg*(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil
     return -1
   return SendMessage(cast[HWND](window.editors[winid]), cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam))
 
+proc resizeFrame(hwnd: HWND) =
+  let
+    editor = hwnd.GetWindow(GW_CHILD)
+
+  if editor != 0:
+    var
+      rect: Rect
+    if hwnd.GetClientRect(addr rect) == 1:
+      discard SetWindowPos(
+        editor,
+        HWND_TOP,
+        rect.left,
+        rect.top,
+        rect.right-rect.left,
+        rect.bottom-rect.top,
+        SWP_SHOWWINDOW)
+
+proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
+  case msg:
+    of WM_SIZE:
+      hwnd.resizeFrame()
+    of WM_CLOSE:
+      hwnd.DestroyWindow()
+    of WM_DESTROY:
+      PostQuitMessage(0)
+    else:
+      return DefWindowProc(hwnd, msg, wParam, lParam)
+
+  return 0
+
+proc registerFrame() =
+  var
+    wc: WNDCLASSEX
+
+  wc.cbSize        = sizeof(WNDCLASSEX).int32
+  wc.style         = 0
+  wc.lpfnWndProc   = frameCallback
+  wc.cbClsExtra    = 0
+  wc.cbWndExtra    = 0
+  wc.hInstance     = GetModuleHandleW(nil)
+  # wc.hIcon         = LoadIcon(NULL, IDI_APPLICATION);
+  # wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+  # wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
+  # wc.lpszMenuName  = NULL;
+  wc.lpszClassName = "FeudFrame"
+  # wc.hIconSm       = LoadIcon(NULL, IDI_APPLICATION);
+
+  doException RegisterClassEx(addr wc) != 0, "Frame registration failed with " & $GetLastError()
+
+proc unregisterFrame() =
+  doException UnregisterClass("FeudFrame", GetModuleHandleW(nil)) != 0, "Frame unregistration failed with " & $GetLastError()
+
+proc createFrame(show = true): HWND =
+  result = CreateWindowEx(
+    WS_EX_OVERLAPPEDWINDOW, "FeudFrame", "", WS_OVERLAPPEDWINDOW,
+    10, 10, 1200, 800, 0, 0, GetModuleHandleW(nil), nil)
+
+  doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
+
+  if show:
+    result.ShowWindow(SW_SHOW)
+
+  doException result.UpdateWindow() != 0, "UpdateWindow() failed with " & $GetLastError()
+
 proc createPopup(): HWND =
   result = CreateWindow("Scintilla", "", WS_BORDER, 10, 10, 800, 30, 0, 0, GetModuleHandleW(nil), nil)
   doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
@@ -53,8 +118,8 @@ proc createPopup(): HWND =
 
   doException result.UpdateWindow() != 0, "UpdateWindow() failed with " & $GetLastError()
 
-proc createWindow(name = "", show = true): HWND =
-  result = CreateWindow("Scintilla", name, WS_OVERLAPPEDWINDOW, 10, 10, 1200, 800, 0, 0, GetModuleHandleW(nil), nil)
+proc createWindow(parent: HWND = 0, name = "", show = true): HWND =
+  result = CreateWindow("Scintilla", name, WS_CHILD, 0, 0, 1200, 800, parent, 0, GetModuleHandleW(nil), nil)
   doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
 
   if show:
@@ -121,11 +186,19 @@ proc setCurrentWindow(window: var Window, closeid: int) =
       if closeid < window.current:
         window.current -= 1
 
+proc getWinidFromHwnd(window: var Window, hwnd: HWND): int =
+  result = window.frames.find(hwnd)
+  if result == -1:
+    result = window.editors.find(hwnd)
+
 proc newWindow(plg: var Plugin) {.feudCallback.} =
   var
     window = plg.getWindow()
+    frame = createFrame()
 
-  window.editors.add cast[pointer](createWindow())
+  window.frames.add cast[pointer](frame)
+  window.editors.add cast[pointer](createWindow(frame))
+  frame.resizeFrame()
   window.current = window.editors.len-1
 
   plg.ctx.handleCommand(plg.ctx, "setTheme")
@@ -143,15 +216,17 @@ proc closeWindow(plg: var Plugin) {.feudCallback.} =
 
   if winid < window.editors.len:
     DestroyWindow(cast[HWND](window.editors[winid]))
+    DestroyWindow(cast[HWND](window.frames[winid]))
     window.setCurrentWindow(winid)
     window.editors.delete(winid)
+    window.frames.delete(winid)
 
 proc positionPopup(hwnd: HWND) =
   var
     fghwnd = GetForegroundWindow()
     rect: RECT
 
-  if GetWindowRect(fghwnd, addr rect) == 1:
+  if fghwnd.GetWindowRect(addr rect) == 1:
     discard hwnd.SetWindowPos(
       fghwnd,
       rect.left+25,
@@ -231,20 +306,31 @@ proc execPopup(plg: var Plugin) =
       plg.togglePopup()
       plg.ctx.handleCommand(plg.ctx, ($cast[cstring](data)).strip())
 
-# proc setTitle(plg: var Plugin) {.feudCallback.} =
-  # var
-    # window = plg.getWindow()
-    # winid = window.current
-  # if plg.ctx.cmdParam.len != 0:
-    # SendMessage(cast[HWND](window.editors[winid]), WM_SETTEXT, 0, cast[LPARAM](plg.ctx.cmdParam[0]))
+proc setTitle(plg: var Plugin) {.feudCallback.} =
+  var
+    window = plg.getWindow()
+    winid = window.current
+  if plg.ctx.cmdParam.len != 0:
+    SetWindowText(cast[HWND](window.frames[winid]), plg.ctx.cmdParam[0].cstring)
 
 feudPluginLoad:
   var
     window = plg.getWindow()
+    frame: HWND
 
+  registerFrame()
+
+  window.frames.add nil
   window.editors.add cast[pointer](createPopup())
-  window.editors.add cast[pointer](createWindow(show=false))
-  window.editors.add cast[pointer](createWindow())
+
+  frame = createFrame(show=false)
+  window.frames.add cast[pointer](frame)
+  window.editors.add cast[pointer](createWindow(frame, show=false))
+
+  frame = createFrame()
+  window.frames.add cast[pointer](frame)
+  window.editors.add cast[pointer](createWindow(frame))
+  frame.resizeFrame()
   window.current = 2
 
   window.hotkeys = newTable[int, tuple[hotkey, callback: string]]()
@@ -282,8 +368,10 @@ feudPluginTick:
     for i in countdown(window.editors.len-1, 0):
       if IsWindow(cast[HWND](window.editors[i])) == 0:
         DestroyWindow(cast[HWND](window.editors[i]))
+        DestroyWindow(cast[HWND](window.frames[i]))
         window.setCurrentWindow(i)
         window.editors.delete(i)
+        window.frames.delete(i)
     if window.editors.len == 2:
       plg.ctx.handleCommand(plg.ctx, "quit")
 
@@ -299,13 +387,17 @@ feudPluginUnload:
 
   for i in countdown(window.editors.len-1, 0):
     DestroyWindow(cast[HWND](window.editors[i]))
+    DestroyWindow(cast[HWND](window.frames[i]))
     window.setCurrentWindow(i)
     discard window.editors.pop()
+    discard window.frames.pop()
 
   for hotkey in window.hotkeys.keys():
     let
       id = hotkey.hash().abs()
     UnregisterHotKey(0, id.int32)
+
+  unregisterFrame()
 
   freePlgData[Window](plg)
 

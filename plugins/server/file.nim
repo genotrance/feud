@@ -73,6 +73,8 @@ proc switchDoc(plg: var Plugin, docid: int) =
 
   docs.current = docid
 
+  plg.ctx.handleCommand(plg.ctx, "setTitle " & docs.doclist[docid].path)
+
 proc loadFileContents(plg: var Plugin, path: string) =
   if not fileExists(path):
     return
