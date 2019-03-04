@@ -273,20 +273,20 @@ proc tickPlugins(ctx: var Ctx) =
 proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
   result = true
   case cmd:
-    of "plugins":
+    of "plist":
       var
         nf = ""
       for pl in ctx.plugins.keys():
         nf &= pl.extractFilename & " "
       ctx.notify(ctx, nf)
-    of "reload", "load":
+    of "preload", "pload":
       if ctx.cmdParam.len != 0:
         withLock ctx.pmonitor[].lock:
           ctx.pmonitor[].processed.excl ctx.cmdParam[0]
       else:
         withLock ctx.pmonitor[].lock:
           ctx.pmonitor[].processed.clear()
-    of "unload":
+    of "punload":
       if ctx.cmdParam.len != 0:
         if ctx.plugins.hasKey(ctx.cmdParam[0]):
           ctx.unloadPlugin(ctx.cmdParam[0])

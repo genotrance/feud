@@ -204,6 +204,19 @@ proc closeAll(plg: var Plugin) {.feudCallback.} =
     plg.ctx.cmdParam = @[$(docs.doclist.len-1)]
     plg.close()
 
+proc reload(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+    docid = docs.current
+
+  if docid > 0:
+    let
+      path = docs.doclist[docid].path
+
+    plg.loadFileContents(path)
+
+    plg.ctx.notify(plg.ctx, &"Reloaded {path}")
+
 proc next(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
