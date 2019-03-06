@@ -130,7 +130,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
               info = path.getFileInfo()
               doc = new(Doc)
 
-            doc.path = path.deepCopy()
+            doc.path = path.expandFilename()
             doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
 
             docs.doclist.add doc
