@@ -20,7 +20,11 @@ proc loadConfigFile(plg: var Plugin) =
 
   for cfgFile in configFiles:
     if fileExists(cfgFile):
-      config.commands.add cfgFile.readFile().splitLines()
+      for line in cfgFile.readFile().splitLines():
+        let
+          sline = line.strip()
+        if sline.len != 0:
+          config.commands.add sline
 
 proc loadConfig(plg: var Plugin) =
   var

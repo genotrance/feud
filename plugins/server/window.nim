@@ -245,6 +245,11 @@ proc togglePopup(plg: var Plugin) {.feudCallback.} =
     hwnd.ShowWindow(SW_HIDE)
   else:
     hwnd.positionPopup()
+    if plg.ctx.cmdParam.len != 0:
+      let
+        param = plg.ctx.cmdParam[0].deepCopy()
+      msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & " ").cstring, windowid=0)
+      msg(plg.ctx, SCI_GOTOPOS, param.len+1, windowid=0)
     hwnd.ShowWindow(SW_SHOW)
 
 proc hotkey(plg: var Plugin) {.feudCallback.} =
