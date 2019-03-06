@@ -28,7 +28,7 @@ type
 
     msg*: proc(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, windowID = -1): int
     notify*: proc(ctx: var Ctx, msg: string)
-    handleCommand*: proc(ctx: var Ctx, command: string) {.nimcall.}
+    handleCommand*: proc(ctx: var Ctx, command: string): bool {.nimcall.}
 
     tick*: int
     pmonitor*: ptr PluginMonitor

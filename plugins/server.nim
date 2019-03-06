@@ -116,7 +116,7 @@ proc readServer(plg: var Plugin) =
   withLock pserver[].lock:
     for i in pserver[].recvBuf:
       if mode == "server":
-        plg.ctx.handleCommand(plg.ctx, $i)
+        discard plg.ctx.handleCommand(plg.ctx, $i)
       else:
         echo $i
 

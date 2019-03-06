@@ -24,8 +24,8 @@ const
     "TRIPLE": "0xE6DB74",
     "TRIPLEDOUBLE": "0xE6DB74",
 
-    "STRINGEOL": "0x0000FF",
-    "NUMERROR": "0x0000FF",
+    "STRINGEOL": "0xFF0000",
+    "NUMERROR": "0xFF0000",
 
     "OPERATOR": "0x66D9EF",
     "IDENTIFIER": "0xFFFFFF",
@@ -39,7 +39,7 @@ const
 
 proc doSet(plg: var Plugin, cmds: string) =
   for cmd in cmds.splitLines():
-    plg.ctx.handleCommand(plg.ctx, "eMsg " & cmd.strip())
+    discard plg.ctx.handleCommand(plg.ctx, "eMsg " & cmd.strip())
 
 template doSet(msgID, wp, lp) =
   discard plg.ctx.msg(plg.ctx, msgID, wp, lp)

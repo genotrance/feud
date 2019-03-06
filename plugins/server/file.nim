@@ -73,7 +73,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
 
   docs.current = docid
 
-  plg.ctx.handleCommand(plg.ctx, "setTitle " & docs.doclist[docid].path)
+  discard plg.ctx.handleCommand(plg.ctx, "setTitle " & docs.doclist[docid].path)
 
 proc loadFileContents(plg: var Plugin, path: string) =
   if not fileExists(path):
@@ -95,9 +95,9 @@ proc loadFileContents(plg: var Plugin, path: string) =
       break
   f.close()
 
-  plg.ctx.handleCommand(plg.ctx, "setLexer " & path)
+  discard plg.ctx.handleCommand(plg.ctx, "setLexer " & path)
   if plg.ctx.cmdParam.len != 0:
-    plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
+    discard plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
 
 proc open(plg: var Plugin) {.feudCallback.} =
   let

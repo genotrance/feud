@@ -201,7 +201,7 @@ proc newWindow(plg: var Plugin) {.feudCallback.} =
   frame.resizeFrame()
   window.current = window.editors.len-1
 
-  plg.ctx.handleCommand(plg.ctx, "setTheme")
+  discard plg.ctx.handleCommand(plg.ctx, "setTheme")
 
 proc closeWindow(plg: var Plugin) {.feudCallback.} =
   var
@@ -304,7 +304,7 @@ proc execPopup(plg: var Plugin) =
 
     if msg(plg.ctx, SCI_GETTEXT, length+1, data, 0) == length:
       plg.togglePopup()
-      plg.ctx.handleCommand(plg.ctx, ($cast[cstring](data)).strip())
+      discard plg.ctx.handleCommand(plg.ctx, ($cast[cstring](data)).strip())
 
 proc setTitle(plg: var Plugin) {.feudCallback.} =
   var
@@ -337,8 +337,8 @@ feudPluginLoad:
 
   plg.ctx.msg = msg
 
-  plg.ctx.handleCommand(plg.ctx, "setTheme")
-  plg.ctx.handleCommand(plg.ctx, "setPopupTheme")
+  discard plg.ctx.handleCommand(plg.ctx, "setTheme")
+  discard plg.ctx.handleCommand(plg.ctx, "setPopupTheme")
 
 feudPluginTick:
   var
@@ -351,7 +351,7 @@ feudPluginTick:
       let
         id = msg.wparam.int
       if window.hotkeys.hasKey(id):
-        plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
+        discard plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
     elif msg.hwnd == cast[HWND](window.editors[0]) and msg.message == WM_KEYDOWN:
       if msg.wparam == VK_ESCAPE:
         plg.togglePopup()
@@ -373,7 +373,7 @@ feudPluginTick:
         window.editors.delete(i)
         window.frames.delete(i)
     if window.editors.len == 2:
-      plg.ctx.handleCommand(plg.ctx, "quit")
+      discard plg.ctx.handleCommand(plg.ctx, "quit")
 
 feudPluginNotify:
   var

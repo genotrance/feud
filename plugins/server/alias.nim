@@ -20,7 +20,7 @@ proc setupAlias(plg: var Plugin, alias: string) =
         cmd = aliases.atable[alias]
         params = plg.ctx.cmdParam.deepCopy()
       for param in params:
-        plg.ctx.handleCommand(plg.ctx, &"{cmd} {param}")
+        discard plg.ctx.handleCommand(plg.ctx, &"{cmd} {param}")
 
 proc alias(plg: var Plugin) {.feudCallback.} =
   var
