@@ -67,29 +67,10 @@ proc monitorServer(tparam: tuple[pserver: ptr Server, listen, dial: string]) {.t
 
   discard socket.nng_close()
 
-proc initServer(plg: var Plugin) =
-  var
-    pserver = newShared[Server]()
-    pserverCtx = getCtxData[ServerCtx](plg)
+proc stopServer(plg: var Plugin) {.feudCallback.} =
+  if plg.pluginData.isNil:
+    return
 
-  plg.pluginData = cast[pointer](pserver)
-
-  pserver[].lock.initLock()
-  pserver[].run = true
-
-  if pserverCtx[].listen.len == 0:
-    if plg.ctx.cmdParam.len == 0:
-      pserverCtx[].listen = "ipc:///tmp/feud"
-    else:
-      pserverCtx[].listen = plg.ctx.cmdParam[0]
-
-  if pserverCtx[].dial.len == 0:
-    if plg.ctx.cmdParam.len > 1:
-      pserverCtx[].dial = plg.ctx.cmdParam[1]
-
-  createThread(pserverCtx.thread, monitorServer, (pserver, pserverCtx[].listen, pserverCtx[].dial))
-
-proc stopServer(plg: var Plugin) =
   var
     pserver = plg.getServer()
     pserverCtx = getCtxData[ServerCtx](plg)
@@ -101,8 +82,32 @@ proc stopServer(plg: var Plugin) =
 
   freeShared(pserver)
 
-proc restartServer(plg: var Plugin) {.feudCallback.} =
+  plg.pluginData = nil
+
+proc initServer(plg: var Plugin) {.feudCallback.} =
   plg.stopServer()
+
+  var
+    pserver = newShared[Server]()
+    pserverCtx = getCtxData[ServerCtx](plg)
+
+  plg.pluginData = cast[pointer](pserver)
+
+  pserver[].lock.initLock()
+  pserver[].run = true
+
+  if plg.ctx.cmdParam.len == 0:
+    if pserverCtx[].listen.len == 0:
+      pserverCtx[].listen = "ipc:///tmp/feud"
+  else:
+    pserverCtx[].listen = plg.ctx.cmdParam[0]
+
+  if plg.ctx.cmdParam.len > 1:
+    pserverCtx[].dial = plg.ctx.cmdParam[1]
+
+  createThread(pserverCtx.thread, monitorServer, (pserver, pserverCtx[].listen, pserverCtx[].dial))
+
+proc restartServer(plg: var Plugin) {.feudCallback.} =
   plg.initServer()
 
 proc readServer(plg: var Plugin) =

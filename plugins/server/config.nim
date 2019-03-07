@@ -23,7 +23,7 @@ proc loadConfigFile(plg: var Plugin) =
       for line in cfgFile.readFile().splitLines():
         let
           sline = line.strip()
-        if sline.len != 0:
+        if sline.len != 0 and sline[0] notin ['#', ';']:
           config.commands.add sline
 
 proc loadConfig(plg: var Plugin) =
@@ -36,7 +36,7 @@ proc loadConfig(plg: var Plugin) =
 
     for i in 0 .. config.commands.len-1:
       if plg.ctx.handleCommand(plg.ctx, config.commands[i]):
-        plg.ctx.notify(plg.ctx, "Config: " & config.commands[i])
+        plg.ctx.notify(plg.ctx, config.commands[i])
         done.add i
 
     for i in countdown(done.len-1, 0):

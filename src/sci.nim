@@ -38,14 +38,11 @@ proc initCtx(): Ctx =
   result.run = true
   result.handleCommand = handleCommand
 
-proc feudStart*(remote = false) =
+proc feudStart*() =
   var
     ctx = initCtx()
 
   initScintilla()
-
-  if remote:
-    ctx.cmdParam = @["tcp://*:3917"]
   ctx.initPlugins("server")
 
   while ctx.run:
