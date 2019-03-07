@@ -1,4 +1,4 @@
-import hashes, os, strformat, strutils, tables
+import os, strformat, strutils, tables
 
 when defined(Windows):
   import winim/inc/[windef, winbase, winuser], winim/winstr
@@ -270,31 +270,50 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
       let
         spl = param.strip().split(" ", maxsplit=1)
         hotkey = spl[0].strip()
-        id = hotkey.hash().abs()
+
+      var
+        global = false
+        fsModifiers: UINT
+        vk: char
+        id = 0
+        ret = 0
+
+      for i in hotkey:
+        case i:
+          of '*':
+            global = true
+          of '#':
+            fsModifiers = fsModifiers or MOD_WIN
+          of '^':
+            fsModifiers = fsModifiers or MOD_CONTROL
+          of '!':
+            fsModifiers = fsModifiers or MOD_ALT
+          of '+':
+            fsModifiers = fsModifiers or MOD_SHIFT
+          else:
+            vk = i.toUpperAscii
+
+      id = fsModifiers or (vk.int shl 8)
+
       if spl.len == 2:
-        var
-          fsModifiers = MOD_NOREPEAT
-          vk: char
+        ret =
+          if global:
+            RegisterHotKey(0, id.int32, fsModifiers or MOD_NOREPEAT, vk.UINT)
+          else:
+            1
 
-        for i in hotkey:
-          case i:
-            of '#':
-              fsModifiers = fsModifiers or MOD_WIN
-            of '^':
-              fsModifiers = fsModifiers or MOD_CONTROL
-            of '!':
-              fsModifiers = fsModifiers or MOD_ALT
-            of '+':
-              fsModifiers = fsModifiers or MOD_SHIFT
-            else:
-              vk = i.toUpperAscii
-
-        if RegisterHotKey(0, id.int32, fsModifiers.UINT, vk.UINT) != 1:
+        if ret != 1:
           plg.ctx.notify(plg.ctx, strformat.`&`("Failed to register hotkey {hotkey}"))
         else:
           window.hotkeys[id] = (hotkey, spl[1].strip())
       else:
-        if UnregisterHotKey(0, id.int32) != 1:
+        ret =
+          if global:
+            UnregisterHotKey(0, id.int32)
+          else:
+            1
+
+        if ret != 1:
           plg.ctx.notify(plg.ctx, strformat.`&`("Failed to unregister hotkey {hotkey}"))
         else:
           window.hotkeys.del(id)
@@ -357,14 +376,34 @@ feudPluginTick:
         id = msg.wparam.int
       if window.hotkeys.hasKey(id):
         discard plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
-    elif msg.hwnd == cast[HWND](window.editors[0]) and msg.message == WM_KEYDOWN:
-      if msg.wparam == VK_ESCAPE:
-        plg.togglePopup()
-      elif msg.wparam == VK_RETURN:
-        plg.execPopup()
-      else:
-        discard TranslateMessage(addr msg)
-        discard DispatchMessageW(addr msg)
+    elif msg.message == WM_KEYDOWN:
+      let
+        hwnd = cast[pointer](msg.hwnd)
+      if hwnd == window.editors[0]:
+        if msg.wparam == VK_ESCAPE:
+          plg.togglePopup()
+        elif msg.wparam == VK_RETURN:
+          plg.execPopup()
+        else:
+          discard TranslateMessage(addr msg)
+          discard DispatchMessageW(addr msg)
+      elif hwnd in window.editors:
+        var
+          id = msg.wparam.int shl 8
+        if VK_MENU.GetKeyState() < 0: # Alt
+          id = id or MOD_ALT
+        if VK_CONTROL.GetKeyState() < 0:
+          id = id or MOD_CONTROL
+        if VK_SHIFT.GetKeyState() < 0:
+          id = id or MOD_SHIFT
+        if VK_LWIN.GetKeyState() < 0 or VK_RWIN.GetKeyState() < 0:
+          id = id or MOD_WIN
+
+        if window.hotkeys.hasKey(id):
+          discard plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
+        else:
+          discard TranslateMessage(addr msg)
+          discard DispatchMessageW(addr msg)
     else:
       discard TranslateMessage(addr msg)
       discard DispatchMessageW(addr msg)
@@ -397,9 +436,7 @@ feudPluginUnload:
     discard window.editors.pop()
     discard window.frames.pop()
 
-  for hotkey in window.hotkeys.keys():
-    let
-      id = hotkey.hash().abs()
+  for id in window.hotkeys.keys():
     UnregisterHotKey(0, id.int32)
 
   unregisterFrame()
