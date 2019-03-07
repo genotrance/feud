@@ -1,4 +1,4 @@
-import os, strformat, strutils, tables
+import os, strformat, strutils, tables, times
 
 when defined(Windows):
   import winim/inc/[windef, winbase, winuser], winim/winstr
@@ -7,10 +7,11 @@ import "../../src"/pluginapi
 
 type
   Window = ref object
-    current*: int
-    frames*: seq[pointer]
-    editors*: seq[pointer]
-    hotkeys*: TableRef[int, tuple[hotkey, callback: string]]
+    last: Time
+    current: int
+    frames: seq[pointer]
+    editors: seq[pointer]
+    hotkeys: TableRef[int, tuple[hotkey, callback: string]]
 
 proc getWindow(plg: var Plugin): Window =
   return getPlgData[Window](plg)
@@ -362,6 +363,7 @@ feudPluginLoad:
   msg(plg.ctx, SCI_GRABFOCUS)
 
   window.hotkeys = newTable[int, tuple[hotkey, callback: string]]()
+  window.last = getTime()
 
   plg.ctx.msg = msg
 
@@ -375,6 +377,7 @@ feudPluginTick:
     window = plg.getWindow()
 
   if PeekMessageW(lpmsg, 0, 0, 0, PM_REMOVE) > 0:
+    window.last = getTime()
     if msg.message == WM_HOTKEY:
       let
         id = msg.wparam.int
@@ -419,6 +422,9 @@ feudPluginTick:
         window.frames.delete(i)
     if window.editors.len == 2:
       discard plg.ctx.handleCommand(plg.ctx, "quit")
+
+  if getTime() - window.last > initDuration(milliseconds=1):
+    sleep(5)
 
 feudPluginNotify:
   var

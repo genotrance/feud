@@ -47,7 +47,6 @@ proc feudStart*() =
 
   while ctx.run:
     ctx.syncPlugins()
-    sleep(10)
 
   ctx.stopPlugins()
   exitScintilla()
