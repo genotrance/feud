@@ -200,6 +200,7 @@ proc newWindow(plg: var Plugin) {.feudCallback.} =
   window.editors.add cast[pointer](createWindow(frame))
   frame.resizeFrame()
   window.current = window.editors.len-1
+  msg(plg.ctx, SCI_GRABFOCUS)
 
   discard plg.ctx.handleCommand(plg.ctx, "setTheme")
 
@@ -220,6 +221,7 @@ proc closeWindow(plg: var Plugin) {.feudCallback.} =
     window.setCurrentWindow(winid)
     window.editors.delete(winid)
     window.frames.delete(winid)
+    msg(plg.ctx, SCI_GRABFOCUS)
 
 proc positionPopup(hwnd: HWND) =
   var
@@ -243,6 +245,7 @@ proc togglePopup(plg: var Plugin) {.feudCallback.} =
   if hwnd.IsWindowVisible() == 1:
     msg(plg.ctx, SCI_CLEARALL, windowid=0)
     hwnd.ShowWindow(SW_HIDE)
+    msg(plg.ctx, SCI_GRABFOCUS)
   else:
     hwnd.positionPopup()
     if plg.ctx.cmdParam.len != 0:
@@ -356,6 +359,7 @@ feudPluginLoad:
   window.editors.add cast[pointer](createWindow(frame))
   frame.resizeFrame()
   window.current = 2
+  msg(plg.ctx, SCI_GRABFOCUS)
 
   window.hotkeys = newTable[int, tuple[hotkey, callback: string]]()
 

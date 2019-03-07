@@ -75,6 +75,8 @@ proc switchDoc(plg: var Plugin, docid: int) =
 
   discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docid}: {docs.doclist[docid].path}")
 
+  # docs.doclist[docid].path.parentDir().setCurrentDir()
+
 proc loadFileContents(plg: var Plugin, path: string) =
   if not fileExists(path):
     return
@@ -105,7 +107,9 @@ proc open(plg: var Plugin) {.feudCallback.} =
 
   for path in paths:
     if "*" in path or "?" in path:
-      plg.ctx.cmdParam = toSeq(path.walkPattern())
+      plg.ctx.cmdParam = @[]
+      for spath in path.walkPattern():
+        plg.ctx.cmdParam.add spath.expandFilename()
       plg.open()
     else:
       let
@@ -116,7 +120,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
         plg.ctx.cmdParam = @[]
         for kind, file in path.walkDir():
           if kind == pcFile:
-            plg.ctx.cmdParam.add file
+            plg.ctx.cmdParam.add file.expandFilename()
         plg.open()
       else:
         if not fileExists(path):
