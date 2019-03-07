@@ -383,14 +383,11 @@ feudPluginTick:
     elif msg.message == WM_KEYDOWN:
       let
         hwnd = cast[pointer](msg.hwnd)
-      if hwnd == window.editors[0]:
+      if msg.wparam in [VK_ESCAPE, VK_RETURN] and hwnd == window.editors[0]:
         if msg.wparam == VK_ESCAPE:
           plg.togglePopup()
         elif msg.wparam == VK_RETURN:
           plg.execPopup()
-        else:
-          discard TranslateMessage(addr msg)
-          discard DispatchMessageW(addr msg)
       elif hwnd in window.editors:
         var
           id = msg.wparam.int shl 8

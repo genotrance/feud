@@ -1,6 +1,8 @@
 import os, segfaults, sequtils, strformat, strutils, tables
 
-import "../../src"/pluginapi
+import "../.."/src/pluginapi
+import "../.."/wrappers/fuzzy
+
 
 const MAX_BUFFER = 8192
 
@@ -20,26 +22,49 @@ proc findDocFromString(plg: var Plugin, srch: string): int =
   result = -1
   var
     docs = plg.getDocs()
+    scores: seq[int]
+    score = 0
 
   # Exact match
   for i in 0 .. docs.doclist.len-1:
-    if srch == docs.doclist[i].path:
+    let
+      str = docs.doclist[i].path
+    if srch == str:
       result = i
       break
+    elif fuzzy_match(srch, str, score):
+      scores.add score
+    else:
+      scores.add 0
 
   # File name.ext match
   if result == -1:
     for i in 0 .. docs.doclist.len-1:
-      if srch == docs.doclist[i].path.extractFilename():
+      let
+        str = docs.doclist[i].path.extractFilename()
+      if srch == str:
         result = i
         break
+      elif fuzzy_match(srch, str, score) and score > scores[i]:
+          scores[i] = score
 
   # File name match
   if result == -1:
     for i in 0 .. docs.doclist.len-1:
-      if srch == docs.doclist[i].path.splitFile().name:
+      let
+        str = docs.doclist[i].path.splitFile().name
+      if srch == str:
         result = i
         break
+      elif fuzzy_match(srch, str, score) and score > scores[i]:
+          scores[i] = score
+
+  # Fuzzy
+  if result == -1:
+    let
+      maxf = max(scores)
+    if maxf > 100:
+      result = scores.find(maxf)
 
 proc findDocFromParam(plg: var Plugin, param: string): int =
   var
