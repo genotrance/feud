@@ -10,7 +10,7 @@ experience.
 Feud only supports Windows but aims to be cross-platform once basic functionality is implemented. Syntax
 highlighting and themes are supported.
 
-## Navigation
+__Navigation__
 
 Use the `^E` hotkey to bring up the command popup to run any of the following commands. This runs the
 `togglePopup` command internally.
@@ -111,7 +111,7 @@ control a local or remote GUI instance. The interface is still being designed so
 
 Commands: `initServer restartServer stopServer sendServer`
 
-## Feedback
+__Feedback__
 
 Feud is a work in progress and any feedback or suggestions are welcome. It is hosted on [GitHub](https://github.com/genotrance/feud) with an MIT license so issues, forks and PRs are most appreciated.
 
