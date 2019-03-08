@@ -9,7 +9,7 @@ bin = @["feud", "feudc"]
 
 # Dependencies
 
-requires "nim >= 0.19.0", "nimterop >= 0.1.0", "winim >= 2.5.2", "cligen >= 0.9.17"
+requires "nim >= 0.19.0", "nimterop >= 0.1.0", "winim >= 2.5.2", "cligen >= 0.9.17", "nimdeps >= 0.1.0"
 
 import strutils
 
@@ -40,8 +40,11 @@ task clean, "Clean all":
   cleandllTask()
 
 task release, "Release build":
-  exec "nim c -d:release feud"
   exec "nim c -d:release feudc"
+  exec "nim c -d:release feud"
+
+task binary, "Release binary":
+  exec "nim c -d:binary -d:release feud"
 
 task debug, "Debug build":
   exec "nim c --debugger:native feud"

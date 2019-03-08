@@ -22,50 +22,70 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   withLock pmonitor[].lock:
     path = pmonitor[].path
 
-  while true:
-    withLock pmonitor[].lock:
-      if not pmonitor[].run:
-        break
+  when defined(binary):
+    while true:
+      withLock pmonitor[].lock:
+        if not pmonitor[].run:
+          break
 
-    var
-      sourcePaths = toSeq(walkFiles(base/"*.nim"))
-    sourcePaths.add toSeq(walkFiles(base/path/"*.nim"))
+      var
+        dllPaths = toSeq(walkFiles(base/"*.dll"))
+      dllPaths.add toSeq(walkFiles(base/path/"*.dll"))
 
-    for sourcePath in sourcePaths:
-      let
-        dllPath = sourcePath.dll
-        dllPathNew = dllPath & ".new"
-        name = sourcePath.splitFile().name
-
-      if not dllPath.fileExists() or
-        sourcePath.getLastModificationTime() > dllPath.getLastModificationTime():
-        var
-          relbuild =
-            when defined(release):
-              "-d:release"
-            else:
-              ""
-          output = ""
-          exitCode = 0
-
-        if not dllPathNew.fileExists() or
-          sourcePath.getLastModificationTime() > dllPathNew.getLastModificationTime():
-          (output, exitCode) = execCmdEx(&"nim c --app:lib -o:{dllPath}.new {relbuild} {sourcePath}")
-        if exitCode != 0:
-          withLock pmonitor[].lock:
-            pmonitor[].load.add &"{output}\nPlugin compilation failed for {sourcePath}"
-        else:
-          withLock pmonitor[].lock:
-            if name notin pmonitor[].processed:
-              pmonitor[].processed.incl name
-            pmonitor[].load.add &"{dllPath}.new"
-      else:
-        withLock pmonitor[].lock:
+      withLock pmonitor[].lock:
+        for dllPath in dllPaths:
+          let
+            name = dllPath.splitFile().name
           if name notin pmonitor[].processed:
             pmonitor[].processed.incl name
             pmonitor[].load.add &"{dllPath}"
 
-    sleep(2000)
+      sleep(2000)
+  else:
+    while true:
+      withLock pmonitor[].lock:
+        if not pmonitor[].run:
+          break
+
+      var
+        sourcePaths = toSeq(walkFiles(base/"*.nim"))
+      sourcePaths.add toSeq(walkFiles(base/path/"*.nim"))
+
+      for sourcePath in sourcePaths:
+        let
+          dllPath = sourcePath.dll
+          dllPathNew = dllPath & ".new"
+          name = sourcePath.splitFile().name
+
+        if not dllPath.fileExists() or
+          sourcePath.getLastModificationTime() > dllPath.getLastModificationTime():
+          var
+            relbuild =
+              when defined(release):
+                "-d:release"
+              else:
+                ""
+            output = ""
+            exitCode = 0
+
+          if not dllPathNew.fileExists() or
+            sourcePath.getLastModificationTime() > dllPathNew.getLastModificationTime():
+            (output, exitCode) = execCmdEx(&"nim c --app:lib -o:{dllPath}.new {relbuild} {sourcePath}")
+          if exitCode != 0:
+            withLock pmonitor[].lock:
+              pmonitor[].load.add &"{output}\nPlugin compilation failed for {sourcePath}"
+          else:
+            withLock pmonitor[].lock:
+              if name notin pmonitor[].processed:
+                pmonitor[].processed.incl name
+              pmonitor[].load.add &"{dllPath}.new"
+        else:
+          withLock pmonitor[].lock:
+            if name notin pmonitor[].processed:
+              pmonitor[].processed.incl name
+              pmonitor[].load.add &"{dllPath}"
+
+      sleep(2000)
 
 proc unloadPlugin(ctx: var Ctx, name: string) =
   if ctx.plugins.hasKey(name):
