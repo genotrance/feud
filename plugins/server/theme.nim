@@ -36,6 +36,7 @@ const
 
   gFore = "0xABB2BF".toRgb().parseHexInt()
   gBack = "0x282C34".toRgb().parseHexInt()
+  gIndent = "0x686C74".toRgb().parseHexInt()
 
 proc doSet(plg: var Plugin, cmds: string) =
   for cmd in cmds.splitLines():
@@ -94,6 +95,8 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
   # Horizontal scroll
   doSet(SCI_SETSCROLLWIDTH, 1, 0)
   doSet(SCI_SETSCROLLWIDTHTRACKING, 1, 0)
+
+  doSet(SCI_STYLESETBACK, STYLE_INDENTGUIDE, gIndent)
 
   if lexer.len != 0:
     let
