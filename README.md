@@ -1,7 +1,5 @@
 Feud is a text editor based on Scintilla and written in Nim
 
-__Features__
-
 The primary focus is perforamnce and minimal memory and CPU usage. All functionality is implemented with
 the plugin system which exposes the internals for easy extensibility. The feature list is effectively the
 list of plugins and their capabilities.
@@ -12,7 +10,7 @@ experience.
 Feud only supports Windows but aims to be cross-platform once basic functionality is implemented. Syntax
 highlighting and themes are supported.
 
-_Navigation_
+## Navigation
 
 Use the `^E` hotkey to bring up the command popup to run any of the following commands. This runs the
 `togglePopup` command internally.
@@ -71,14 +69,14 @@ alias o open           - create a short alias for the open command
 alias n open *.nim     - alias with params
 ```
 
-_Configuration file_
+__Configuration file__
 
 `feud.ini` is effectively a list of editor and plugin commands to run on load. This includes setting up hooks
 that allow customization of plugin and editor behavior.
 
 Reload configuration with command `config`.
 
-_Scintilla_
+__Scintilla__
 
 The `eMsg` command can be used to send any message to the current editor window. This allows plugins and the
 user to perform many common and advanced tasks directly without having to author a plugin.
@@ -90,7 +88,7 @@ eMsg SCI_SETTABWIDTH 2 - set Scintilla to set tab width to 2
 
 The full documentation for Scintilla is available [here](https://www.scintilla.org/ScintillaDoc.html).
 
-_Hooks_
+__Hooks__
 
 Plugin authors can use hooks to allow users to run custom commands at specific points in their code. For example,
 the `file` plugin enables two hooks: `onFileLoad` and `onFileSwitch`. This allows a user to run custom commands
@@ -106,14 +104,14 @@ command internally.
 
 Hooks can be deleted with `delHook name`.
 
-_Remote Navigation_
+__Remote Navigation__
 
 Feud has an RPC plugin that allows remote navigation. The `feudc` command-line tool can be used to remote
 control a local or remote GUI instance. The interface is still being designed so is a POC at this point.
 
 Commands: `initServer restartServer stopServer sendServer`
 
-__Feedback__
+## Feedback
 
 Feud is a work in progress and any feedback or suggestions are welcome. It is hosted on [GitHub](https://github.com/genotrance/feud) with an MIT license so issues, forks and PRs are most appreciated.
 
