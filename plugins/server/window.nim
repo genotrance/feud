@@ -44,6 +44,13 @@ proc msg*(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil
     return -1
   return SendMessage(cast[HWND](window.editors[winid]), cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam))
 
+proc setFocus(hwnd: HWND) =
+  let
+    editor = hwnd.GetWindow(GW_CHILD)
+
+  if editor != 0:
+    discard SendMessage(editor, SCI_GRABFOCUS, 0, 0)
+
 proc resizeFrame(hwnd: HWND) =
   let
     editor = hwnd.GetWindow(GW_CHILD)
@@ -63,6 +70,8 @@ proc resizeFrame(hwnd: HWND) =
 
 proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
   case msg:
+    of WM_ACTIVATE:
+      hwnd.setFocus()
     of WM_SIZE:
       hwnd.resizeFrame()
     of WM_CLOSE:
