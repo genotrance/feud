@@ -272,8 +272,7 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
       params = plg.ctx.cmdParam.deepCopy()
     for param in params:
       let
-        spl = param.strip().split(" ", maxsplit=1)
-        hotkey = spl[0].strip()
+        (hotkey, val) = param.splitCmd()
 
       var
         global = false
@@ -299,7 +298,7 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
 
       id = fsModifiers or (vk.int shl 8)
 
-      if spl.len == 2:
+      if val.len != 0:
         ret =
           if global:
             RegisterHotKey(0, id.int32, fsModifiers or MOD_NOREPEAT, vk.UINT)
@@ -309,7 +308,7 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
         if ret != 1:
           plg.ctx.notify(plg.ctx, strformat.`&`("Failed to register hotkey {hotkey}"))
         else:
-          window.hotkeys[id] = (hotkey, spl[1].strip())
+          window.hotkeys[id] = (hotkey, val)
       else:
         ret =
           if global:

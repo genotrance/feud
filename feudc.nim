@@ -1,6 +1,6 @@
 import cligen, os, rdstdin, strformat, strutils
 
-import "."/src/[globals, plugin]
+import "."/src/[globals, plugin, utils]
 
 var
   gCh: Channel[string]
@@ -9,10 +9,9 @@ gCh.open()
 
 proc handleCommand(ctx: var Ctx, command: string) =
   let
-    spl = command.strip().split(" ", maxsplit=1)
-    cmd = spl[0]
+    (cmd, val) = command.splitCmd()
 
-  ctx.cmdParam = if spl.len == 2: @[spl[1]] else: @[]
+  ctx.cmdParam = if val.len == 2: @[val] else: @[]
   if not ctx.handlePluginCommand(cmd):
     ctx.cmdParam = @[command]
     discard ctx.handlePluginCommand("sendServer")

@@ -1,3 +1,5 @@
+import strutils
+
 import "."/globals
 
 proc newShared*[T](): ptr T =
@@ -26,3 +28,11 @@ proc toCallback*(callback: pointer): proc(plg: var Plugin) =
   if not callback.isNil:
     result = proc(plg: var Plugin) =
       cast[proc(plg: var Plugin) {.cdecl.}](callback)(plg)
+
+proc splitCmd*(command: string): tuple[name, val: string] =
+  let
+    spl = command.strip().split(" ", maxsplit=1)
+    name = spl[0]
+    val = if spl.len == 2: spl[1].strip() else: ""
+
+  return (name, val)

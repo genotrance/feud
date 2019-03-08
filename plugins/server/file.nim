@@ -99,7 +99,13 @@ proc switchDoc(plg: var Plugin, docid: int) =
 
   discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docid}: {docs.doclist[docid].path}")
 
+  discard plg.ctx.handleCommand(plg.ctx, "setLexer " & docs.doclist[docid].path)
+  if plg.ctx.cmdParam.len != 0:
+    discard plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
+
   # docs.doclist[docid].path.parentDir().setCurrentDir()
+
+  discard plg.ctx.handleCommand(plg.ctx, "runHook onFileSwitch")
 
 proc loadFileContents(plg: var Plugin, path: string) =
   if not fileExists(path):
@@ -121,9 +127,7 @@ proc loadFileContents(plg: var Plugin, path: string) =
       break
   f.close()
 
-  discard plg.ctx.handleCommand(plg.ctx, "setLexer " & path)
-  if plg.ctx.cmdParam.len != 0:
-    discard plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
+  discard plg.ctx.handleCommand(plg.ctx, "runHook onFileLoad")
 
 proc open(plg: var Plugin) {.feudCallback.} =
   let

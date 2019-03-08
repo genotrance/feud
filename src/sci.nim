@@ -17,10 +17,7 @@ proc exitScintilla() =
 proc handleCommand*(ctx: var Ctx, command: string): bool =
   result = true
   let
-    spl = command.strip().split(" ", maxsplit=1)
-    cmd = spl[0]
-
-  var param = if spl.len == 2: spl[1] else: ""
+    (cmd, param) = command.splitCmd()
 
   case cmd:
     of "quit", "exit":

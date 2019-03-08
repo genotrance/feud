@@ -1,10 +1,11 @@
-import os, strutils
+import os, strutils, tables
 
 import "../../src"/pluginapi
 
 type
   Config = ref object
     commands: seq[string]
+    hooks: TableRef[string, seq[string]]
 
 let
   baseName = "feud.ini"
@@ -26,7 +27,7 @@ proc loadConfigFile(plg: var Plugin) =
         if sline.len != 0 and sline[0] notin ['#', ';']:
           config.commands.add sline
 
-proc loadConfig(plg: var Plugin) =
+proc execConfig(plg: var Plugin) =
   var
     config = plg.getConfig()
 
@@ -47,13 +48,44 @@ proc config(plg: var Plugin) {.feudCallback.} =
     config = plg.getConfig()
 
   config.commands = @[]
+  config.hooks = newTable[string, seq[string]]()
 
   plg.loadConfigFile()
-  plg.loadConfig()
+
+proc hook(plg: var Plugin) {.feudCallback.} =
+  var
+    config = plg.getConfig()
+
+  for param in plg.ctx.cmdParam:
+    let
+      (hname, hval) = param.splitCmd()
+
+    if hname.len != 0 and hval.len != 0:
+      if config.hooks.hasKey(hname):
+        config.hooks[hname].add hval
+      else:
+        config.hooks[hname] = @[hval]
+
+proc runHook(plg: var Plugin) {.feudCallback.} =
+  var
+    config = plg.getConfig()
+
+  for param in plg.ctx.cmdParam.deepCopy():
+    if config.hooks.hasKey(param):
+      for cmd in config.hooks[param]:
+        discard plg.ctx.handleCommand(plg.ctx, cmd)
+
+proc delHook(plg: var Plugin) {.feudCallback.} =
+  var
+    config = plg.getConfig()
+
+  for param in plg.ctx.cmdParam.deepCopy():
+    if config.hooks.hasKey(param):
+      config.hooks.del(param)
 
 feudPluginLoad:
   plg.config()
 
 feudPluginTick:
   if plg.ctx.tick mod 50 == 0:
-    plg.loadConfig()
+    plg.execConfig()

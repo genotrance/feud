@@ -40,11 +40,10 @@ proc alias(plg: var Plugin) {.feudCallback.} =
 
     for param in params:
       let
-        spl = param.strip().split(" ", maxsplit=1)
-        alias = spl[0].strip()
+        (alias, val) = param.splitCmd()
 
-      if spl.len == 2:
-        aliases.atable[alias] = spl[1].strip()
+      if val.len != 0:
+        aliases.atable[alias] = val
         plg.setupAlias(alias)
       else:
         aliases.atable.del(alias)
