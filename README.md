@@ -1,5 +1,7 @@
 Feud is a text editor based on Scintilla and written in Nim
 
+![Screenshot](https://i.imgur.com/aPwQxB1.jpg)
+
 The primary focus is perforamnce and minimal memory and CPU usage. All functionality is implemented with
 the plugin system which exposes the internals for easy extensibility. The feature list is effectively the
 list of plugins and their capabilities.
