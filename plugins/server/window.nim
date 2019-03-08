@@ -165,9 +165,11 @@ proc toInt(sval: string, ival: var int): bool =
 proc eMsg(plg: var Plugin) {.feudCallback.} =
   var
     params = plg.ctx.cmdParam.deepCopy()
+
   for param in params:
     let
-      spl = param.split(" ", maxsplit=3)
+      verbose = "-v " in param
+      spl = param.replace("-v ", "").split(" ", maxsplit=3)
 
     var
       s, l, w: int
@@ -198,7 +200,8 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
     else:
       ret = msg(plg.ctx, s)
 
-    plg.ctx.notify(plg.ctx, "Returned: " & $ret)
+    if verbose:
+      plg.ctx.notify(plg.ctx, "Returned: " & $ret)
 
 proc setCurrentWindowOnClose(plg: var Plugin, closeid: int) =
   var

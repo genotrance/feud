@@ -133,48 +133,75 @@ proc loadFileContents(plg: var Plugin, path: string) =
   discard plg.ctx.handleCommand(plg.ctx, "runHook onFileLoad")
 
 proc open(plg: var Plugin) {.feudCallback.} =
-  let
-    paths = plg.ctx.cmdParam.deepCopy()
-
-  for path in paths:
-    if "*" in path or "?" in path:
-      plg.ctx.cmdParam = @[]
-      for spath in path.walkPattern():
-        plg.ctx.cmdParam.add spath.expandFilename()
-      plg.open()
+  proc openRec(plg: var Plugin, path: string) =
+    plg.ctx.cmdParam = @[]
+    var
+      dir, pat: string
+    if "/" in path or "\\" in path:
+      dir = path.parentDir()
+      pat = path.replace(dir, "")
     else:
+      dir = getCurrentDir()
+      pat = path
+    for d in dir.walkDirRec(yieldFilter={pcDir}):
+      if ".git" notin d:
+        if "*" in pat or "?" in pat or fileExists(d/pat):
+          plg.ctx.cmdParam.add d/pat
+    plg.open()
+
+  for param in plg.ctx.cmdParam.deepCopy():
+    let
+      paths = param.split(" ")
+      recurse = "-r" in paths
+
+    for path in paths:
       let
-        docid = plg.findDocFromParam(path)
-      if docid > -1:
-        plg.switchDoc(docid)
-      elif path.dirExists():
-        plg.ctx.cmdParam = @[]
-        for kind, file in path.walkDir():
-          if kind == pcFile:
-            plg.ctx.cmdParam.add file.expandFilename()
-        plg.open()
-      else:
-        if not fileExists(path):
-          plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
+        path = path.strip()
+
+      if "*" in path or "?" in path:
+        if not recurse:
+          plg.ctx.cmdParam = @[]
+          for spath in path.walkPattern():
+            plg.ctx.cmdParam.add spath.expandFilename()
+          plg.open()
         else:
-          var
-            docs = plg.getDocs()
-
-          if plg.findDocFromString(path) < 0:
+          plg.openRec(path)
+      elif path notin ["-r", ""]:
+        let
+          docid = plg.findDocFromParam(path)
+        if docid > -1:
+          plg.switchDoc(docid)
+        elif path.dirExists():
+          plg.ctx.cmdParam = @[]
+          for kind, file in path.walkDir():
+            if kind == pcFile:
+              plg.ctx.cmdParam.add file.expandFilename()
+          plg.open()
+        else:
+          if not fileExists(path):
+            if not recurse:
+              plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
+            else:
+              plg.openRec(path)
+          else:
             var
-              info = path.getFileInfo()
-              doc = new(Doc)
+              docs = plg.getDocs()
 
-            doc.path = path.expandFilename()
-            doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
+            if plg.findDocFromString(path) < 0:
+              var
+                info = path.getFileInfo()
+                doc = new(Doc)
 
-            docs.doclist.add doc
+              doc.path = path.expandFilename()
+              doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
 
-          plg.switchDoc(docs.doclist.len-1)
+              docs.doclist.add doc
 
-          plg.loadFileContents(path)
+            plg.switchDoc(docs.doclist.len-1)
 
-          discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, 0)
+            plg.loadFileContents(path)
+
+            discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, 0)
 
 proc save(plg: var Plugin) {.feudCallback.} =
   var
@@ -204,7 +231,7 @@ proc list(plg: var Plugin) {.feudCallback.} =
     docs = plg.getDocs()
 
   for i in 0 .. docs.doclist.len-1:
-    lout &= &"{i} {docs.doclist[i].path}\n"
+    lout &= &"{i}: {docs.doclist[i].path}\n"
 
   plg.ctx.notify(plg.ctx, lout[0..^2])
 

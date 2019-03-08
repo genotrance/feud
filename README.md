@@ -23,6 +23,12 @@ open path\to\file.txt  - open specific file
 open ..\*.nim          - open all files that match wildcard
 open path\to\dir       - open all files in directory
 
+Recursive search
+open -r file.txt       - open file.txt in current dir tree
+open -r path\to\file.c - open file.c in path\to dir tree
+open -r *.nim          - open all nim files in current dir tree
+open -r path\to\*.c    - open all c files in path\to tree
+
 reload                 - reload current buffer
 save                   - save current buffer
 ```
