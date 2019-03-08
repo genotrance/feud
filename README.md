@@ -78,17 +78,40 @@ that allow customization of plugin and editor behavior.
 
 Reload configuration with command `config`.
 
+_Scintilla_
+
+The `eMsg` command can be used to send any message to the current editor window. This allows plugins and the
+user to perform many common and advanced tasks directly without having to author a plugin.
+
+```
+eMsg SCI_SETUSETABS 0  - set Scintilla to replace tabs with spaces
+eMsg SCI_SETTABWIDTH 2 - set Scintilla to set tab width to 2
+```
+
+The full documentation for Scintilla is available [here](https://www.scintilla.org/ScintillaDoc.html).
+
+_Hooks_
+
+Plugin authors can use hooks to allow users to run custom commands at specific points in their code. For example,
+the `file` plugin enables two hooks: `onFileLoad` and `onFileSwitch`. This allows a user to run custom commands
+at that point. For example:
+
+```
+hook onFileSwitch eMsg SCI_SETUSETABS 0
+hook onFileSwitch eMsg SCI_SETTABWIDTH 2
+```
+
+This now runs these two `eMsg` commands whenever you switch buffers. The plugin would need to run the `runHook name`
+command internally.
+
+Hooks can be deleted with `delHook name`.
+
 _Remote Navigation_
 
 Feud has an RPC plugin that allows remote navigation. The `feudc` command-line tool can be used to remote
 control a local or remote GUI instance. The interface is still being designed so is a POC at this point.
 
 Commands: `initServer restartServer stopServer sendServer`
-
-_Scintilla_
-
-The `eMsg` command can be used to send any message to the current editor window. This allows plugins and the
-user to perform many common and advanced tasks directly without having to author a plugin.
 
 __Feedback__
 
