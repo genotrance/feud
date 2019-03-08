@@ -9,6 +9,7 @@ type
   Doc = ref object
     path: string
     docptr: pointer
+    cursor: int
 
   Docs = ref object
     current: int
@@ -91,9 +92,11 @@ proc switchDoc(plg: var Plugin, docid: int) =
   if docid < 0 or docid > docs.doclist.len-1 or docid == docs.current:
     return
 
+  docs.doclist[docs.current].cursor = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
   discard plg.ctx.msg(plg.ctx, SCI_ADDREFDOCUMENT, 0, docs.doclist[docs.current].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, docs.doclist[docid].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
+  discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, docs.doclist[docid].cursor)
 
   docs.current = docid
 
@@ -170,6 +173,8 @@ proc open(plg: var Plugin) {.feudCallback.} =
           plg.switchDoc(docs.doclist.len-1)
 
           plg.loadFileContents(path)
+
+          discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, 0)
 
 proc save(plg: var Plugin) {.feudCallback.} =
   var
