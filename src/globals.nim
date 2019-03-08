@@ -10,6 +10,12 @@ type
     depends*: seq[string]
     dependents*: HashSet[string]
 
+    onDepends*: proc(plg: var Plugin)
+    onLoad*: proc(plg: var Plugin)
+    onUnload*: proc(plg: var Plugin)
+    onTick*: proc(plg: var Plugin)
+    onNotify*: proc(plg: var Plugin)
+
     cindex*: HashSet[string]
     callbacks*: TableRef[string, proc(plg: var Plugin)]
     pluginData*: pointer

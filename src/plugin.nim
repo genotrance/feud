@@ -67,17 +67,14 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
 
     sleep(2000)
 
-proc hasCallback(plg: var Plugin, name: string): bool {.inline.} =
-  return plg.callbacks.hasKey(name) and not plg.callbacks[name].isNil
-
 proc unloadPlugin(ctx: var Ctx, name: string) =
   if ctx.plugins.hasKey(name):
     for dep in ctx.plugins[name].dependents:
       ctx.notify(ctx, &"Plugin '{dep}' depends on '{name}' and might crash")
 
-    if ctx.plugins[name].hasCallback("onUnload"):
+    if not ctx.plugins[name].onUnload.isNil:
       try:
-        ctx.plugins[name].callbacks["onUnload"](ctx.plugins[name])
+        ctx.plugins[name].onUnload(ctx.plugins[name])
       except:
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{name}' crashed in 'feudPluginUnload()'")
 
@@ -96,9 +93,9 @@ proc notifyPlugins*(ctx: var Ctx) =
   for pl in ctx.plugins.keys():
     var
       plg = ctx.plugins[pl]
-    if plg.hasCallback("onNotify"):
+    if not plg.onNotify.isNil:
       try:
-        plg.callbacks["onNotify"](plg)
+        plg.onNotify(plg)
         notified = true
       except:
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
@@ -129,17 +126,17 @@ proc initPlugins*(ctx: var Ctx, path: string) =
   createThread(gThread, monitorPlugins, ctx.pmonitor)
 
 proc initPlugin(plg: var Plugin) =
-  if not plg.hasCallback("onLoad"):
+  if plg.onLoad.isNil:
     var
       once = false
 
-    if not plg.hasCallback("onDepends"):
+    if plg.onDepends.isNil:
       once = true
-      plg.callbacks["onDepends"] = plg.handle.symAddr("onDepends").toCallback()
+      plg.onDepends = plg.handle.symAddr("onDepends").toCallback()
 
-      if plg.hasCallback("onDepends"):
+      if not plg.onDepends.isNil:
         try:
-          plg.callbacks["onDepends"](plg)
+          plg.onDepends(plg)
         except:
           plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginDepends()'")
           plg.ctx.unloadPlugin(plg.name)
@@ -153,21 +150,21 @@ proc initPlugin(plg: var Plugin) =
           plg.ctx.pmonitor[].init.add plg.name
         return
 
-    plg.callbacks["onLoad"] = plg.handle.symAddr("onLoad").toCallback()
-    if not plg.hasCallback("onLoad"):
+    plg.onLoad = plg.handle.symAddr("onLoad").toCallback()
+    if plg.onLoad.isNil:
       plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' missing 'feudPluginLoad()'")
       plg.ctx.unloadPlugin(plg.name)
     else:
       try:
-        plg.callbacks["onLoad"](plg)
+        plg.onLoad(plg)
       except:
         plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
         plg.ctx.unloadPlugin(plg.name)
         return
 
-      plg.callbacks["onUnload"] = plg.handle.symAddr("onUnload").toCallback()
-      plg.callbacks["onTick"] = plg.handle.symAddr("onTick").toCallback()
-      plg.callbacks["onNotify"] = plg.handle.symAddr("onNotify").toCallback()
+      plg.onUnload = plg.handle.symAddr("onUnload").toCallback()
+      plg.onTick = plg.handle.symAddr("onTick").toCallback()
+      plg.onNotify = plg.handle.symAddr("onNotify").toCallback()
 
       for cb in plg.cindex:
         plg.callbacks[cb] = plg.handle.symAddr(cb).toCallback()
@@ -263,9 +260,9 @@ proc tickPlugins(ctx: var Ctx) =
   for pl in ctx.plugins.keys():
     var
       plg = ctx.plugins[pl]
-    if plg.hasCallback("onTick"):
+    if not plg.onTick.isNil:
       try:
-        plg.callbacks["onTick"](plg)
+        plg.onTick(plg)
       except:
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
         ctx.unloadPlugin(plg.name)

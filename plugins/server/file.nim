@@ -3,7 +3,6 @@ import os, segfaults, sequtils, strformat, strutils, tables
 import "../.."/src/pluginapi
 import "../.."/wrappers/fuzzy
 
-
 const MAX_BUFFER = 8192
 
 type

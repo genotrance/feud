@@ -3,7 +3,7 @@ import os, strformat, strutils, tables, times
 when defined(Windows):
   import winim/inc/[windef, winbase, winuser], winim/winstr
 
-import "../../src"/pluginapi
+import "../.."/src/pluginapi
 
 type
   Window = ref object
