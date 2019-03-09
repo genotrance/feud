@@ -29,6 +29,10 @@ open -r path\to\file.c - open file.c in path\to dir tree
 open -r *.nim          - open all nim files in current dir tree
 open -r path\to\*.c    - open all c files in path\to tree
 
+Fuzzy search
+open -f fl             - fuzzy find file in current dir tree
+open -f path\to\fl     - fuzzy find file in path\to dir tree
+
 reload                 - reload current buffer
 save                   - save current buffer
 ```

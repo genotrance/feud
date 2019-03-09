@@ -133,26 +133,47 @@ proc loadFileContents(plg: var Plugin, path: string) =
   discard plg.ctx.handleCommand(plg.ctx, "runHook onFileLoad")
 
 proc open(plg: var Plugin) {.feudCallback.} =
-  proc openRec(plg: var Plugin, path: string) =
-    plg.ctx.cmdParam = @[]
-    var
-      dir, pat: string
+  proc getDirPat(path: string): tuple[dir, pat: string] =
     if "/" in path or "\\" in path:
-      dir = path.parentDir()
-      pat = path.replace(dir, "")
+      result.dir = path.parentDir()
+      result.pat = path.replace(result.dir, "")
+      if result.pat[0] in ['\\', '/']:
+        result.pat = result.pat[1 .. ^1]
     else:
-      dir = getCurrentDir()
-      pat = path
+      result.dir = getCurrentDir()
+      result.pat = path
+
+  proc openRec(plg: var Plugin, path: string) =
+    var
+      (dir, pat) = path.getDirPat()
+    plg.ctx.cmdParam = @[]
     for d in dir.walkDirRec(yieldFilter={pcDir}):
       if ".git" notin d:
         if "*" in pat or "?" in pat or fileExists(d/pat):
           plg.ctx.cmdParam.add d/pat
     plg.open()
 
+  proc openFuzzy(plg: var Plugin, path: string) =
+    var
+      (dir, pat) = path.getDirPat()
+      bestscore = 0
+      bestmatch = ""
+      score = 0
+    plg.ctx.cmdParam = @[]
+    for f in dir.walkDirRec():
+      if ".git" notin f:
+        if fuzzy_match(pat, f.extractFilename(), score):
+          if score > bestscore:
+            bestscore = score
+            bestmatch = f
+    if bestmatch.len != 0:
+      discard plg.ctx.handleCommand(plg.ctx, &"togglePopup open {bestmatch}")
+
   for param in plg.ctx.cmdParam.deepCopy():
     let
       paths = param.split(" ")
       recurse = "-r" in paths
+      fuzzy = "-f" in paths
 
     for path in paths:
       let
@@ -166,7 +187,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
           plg.open()
         else:
           plg.openRec(path)
-      elif path notin ["-r", ""]:
+      elif path notin ["-r", "-f", ""]:
         let
           docid = plg.findDocFromParam(path)
         if docid > -1:
@@ -179,10 +200,12 @@ proc open(plg: var Plugin) {.feudCallback.} =
           plg.open()
         else:
           if not fileExists(path):
-            if not recurse:
-              plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
-            else:
+            if recurse:
               plg.openRec(path)
+            elif fuzzy:
+              plg.openFuzzy(path)
+            else:
+              plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
           else:
             var
               docs = plg.getDocs()
