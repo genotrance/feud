@@ -222,11 +222,12 @@ proc setCurrentWindowOnClose(plg: var Plugin, closeid: int) =
 proc newWindow(plg: var Plugin) {.feudCallback.} =
   var
     window = plg.getWindow()
-    frame = plg.createFrame()
+    frame = plg.createFrame(show=false)
 
   window.frames.add cast[pointer](frame)
   window.editors.add cast[pointer](createWindow(frame))
   frame.resizeFrame()
+  frame.ShowWindow(SW_SHOW)
   window.current = window.editors.len-1
   msg(plg.ctx, SCI_GRABFOCUS)
 
@@ -433,10 +434,11 @@ feudPluginLoad:
   window.frames.add cast[pointer](frame)
   window.editors.add cast[pointer](createWindow(frame, show=false))
 
-  frame = plg.createFrame()
+  frame = plg.createFrame(show=false)
   window.frames.add cast[pointer](frame)
   window.editors.add cast[pointer](createWindow(frame))
   frame.resizeFrame()
+  frame.ShowWindow(SW_SHOW)
   window.current = 2
   msg(plg.ctx, SCI_GRABFOCUS)
 
