@@ -36,3 +36,6 @@ proc splitCmd*(command: string): tuple[name, val: string] =
     val = if spl.len == 2: spl[1].strip() else: ""
 
   return (name, val)
+
+proc getParam*(plg: var Plugin): seq[string] =
+  deepCopy(result, plg.ctx.cmdParam)

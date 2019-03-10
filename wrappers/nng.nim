@@ -3,8 +3,7 @@ import macros, os, strutils
 import nimterop/[cimport, git]
 
 const
-  baseDir = currentSourcePath().parentDir().parentDir()/"build"
-  nngDir = baseDir/"nng"
+  nngDir = currentSourcePath().parentDir().parentDir()/"build"/"nng"
 
 static:
   cDebug()
@@ -32,6 +31,8 @@ static:
 #  cDefine("NNG_TRANSPORT_TLS")
 #  cDefine("NNG_TRANSPORT_ZEROTIER")
 
+
+
 when defined(Windows):
   static:
     cDefine("NNG_PLATFORM_WINDOWS")
@@ -56,7 +57,8 @@ cCompile(nngDir/"src/nng.c")
 cCompile(nngDir/"src/core")
 cCompile(nngDir/"src/protocol")
 cCompile(nngDir/"src/transport", exclude="zerotier,tls")
-cCompile(nngDir/"src/supplemental", exclude="tls")
+cCompile(nngDir/"src/supplemental", exclude="tls,stub")
+cCompile(nngDir/"src/supplemental/tls/none/tls.c")
 
 cImport(nngDir/"include/nng/nng.h")
 cImport(nngDir/"include/nng/protocol/bus0/bus.h")

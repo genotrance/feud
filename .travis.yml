@@ -12,13 +12,37 @@ cache:
 
 install:
   - set -e
-  - export CHOOSENIM_CHOOSE_VERSION=$BRANCH
-  - |
-      curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
-      cat init.sh | sed 's/*mingw*/*mingw* | *msys*/' > init.sh
-      sh init.sh -y
+  - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=choosenim.exe" -o choosenim.exe
+  - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=libeay32.dll" -o libeay32.dll
+  - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=ssleay32.dll" -o ssleay32.dll
+  - ./choosenim.exe $BRANCH -y
   - export PATH=$HOME/.nimble/bin:$PATH
+  - export BUILD_DATE=$(date +'%Y%m%d%H%M')
+  - export GIT_HASH=$(git log --format=%h -1)
+  - export GIT_HASH_FULL=$(git rev-parse HEAD)
+  - export TRAVIS_TAG="${BUILD_DATE}-${GIT_HASH}"
 
 script:
   - set -e
+  - nimble develop -y
   - nimble binary
+  - 7z a feud-${TRAVIS_TAG}.zip feud.exe
+
+before_deploy:
+  - git config --local user.name "${GIT_TAG_USER_NAME}"
+  - git config --local user.email "${GIT_TAG_USER_EMAIL}"
+  - git tag "${TRAVIS_TAG}" || echo "${TRAVIS_TAG} already exists"
+
+deploy:
+  provider: releases
+  api_key: "${GITHUB_OAUTH_TOKEN}"
+  file: "feud-${TRAVIS_TAG}.zip"
+  name: "${TRAVIS_TAG}"
+  body: >-
+    This release was built on $(date +'%Y-%m-%d') using https://github.com/genotrance/feud/tree/${GIT_HASH_FULL}.
+
+  skip_cleanup: true
+  on:
+    branch: master
+    tags: false
+

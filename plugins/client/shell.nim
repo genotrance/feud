@@ -10,12 +10,10 @@ proc exec(plg: var Plugin) {.feudCallback.} =
       else:
         ""
 
-  if plg.ctx.cmdParam.len != 0:
-    cmd &= plg.ctx.cmdParam[0]
+  for param in plg.getParam():
+    let
+      (output, exitCode) = execCmdEx(param)
 
-  let
-    (output, exitCode) = execCmdEx(cmd)
-
-  plg.ctx.notify(plg.ctx, &"{output}Returned: {$exitCode}")
+    plg.ctx.notify(plg.ctx, &"{output}Returned: {$exitCode}")
 
 feudPluginLoad()

@@ -18,8 +18,8 @@ proc setupAlias(plg: var Plugin, alias: string) =
     plg.callbacks[alias] = proc(plg: var Plugin) =
       var
         cmd = aliases.atable[alias]
-        params = plg.ctx.cmdParam.deepCopy()
-      for param in params:
+
+      for param in plg.getParam():
         discard plg.ctx.handleCommand(plg.ctx, &"{cmd} {param}")
 
 proc alias(plg: var Plugin) {.feudCallback.} =
@@ -35,10 +35,7 @@ proc alias(plg: var Plugin) {.feudCallback.} =
     if aout.len != 0:
       plg.ctx.notify(plg.ctx, aout[0 .. ^2])
   else:
-    let
-      params = plg.ctx.cmdParam.deepCopy()
-
-    for param in params:
+    for param in plg.getParam():
       let
         (alias, val) = param.splitCmd()
 

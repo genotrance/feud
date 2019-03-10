@@ -1,6 +1,6 @@
 import macros, os, sets, strformat, strutils, tables
 
-import nimterop/cimport
+import nimterop/[cimport, git]
 
 import "."/[globals, utils]
 export Plugin, Ctx
@@ -8,8 +8,10 @@ export utils
 
 # Scintilla constants
 const
-  baseDir = currentSourcePath().parentDir().parentDir()/"build"
-  sciDir = baseDir/"scintilla"
+  sciDir = currentSourcePath().parentDir().parentDir()/"build"/"scintilla"
+
+static:
+  gitPull("https://github.com/mirror/scintilla", sciDir)
 
 cIncludeDir(sciDir/"include")
 cImport(sciDir/"include/Scintilla.h", recurse=true)
@@ -18,7 +20,7 @@ cImport(sciDir/"include/SciLexer.h")
 const SciDefs* = (block:
   var
     scvr = initTable[string, int]()
-    path = currentSourcePath.parentDir().parentDir()/"build"/"scintilla"/"include"
+    path = sciDir/"include"
 
   for file in ["Scintilla.h", "SciLexer.h"]:
     for line in staticRead(path/file).splitLines():

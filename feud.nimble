@@ -5,13 +5,11 @@ author      = "genotrance"
 description = "Fed Ep with UDitors"
 license     = "MIT"
 
-bin = @["feud", "feudc"]
-
 # Dependencies
 
 requires "nim >= 0.19.0", "nimterop >= 0.1.0", "winim >= 2.5.2", "cligen >= 0.9.17", "nimdeps >= 0.1.0"
 
-import os, strutils
+import strutils
 
 task cleandll, "Clean DLLs":
   var
@@ -41,8 +39,8 @@ task clean, "Clean all":
 
 proc buildDlls(path: string) =
   for dll in listFiles(path):
-    if dll.splitFile.ext == ".nim":
-      exec "nim c --app:lib -d:release --opt:speed " & dll
+    if dll[^4 .. ^1] == ".nim":
+      exec "nim c --app:lib -d:release " & dll
 
 task dll, "Build dlls":
   buildDlls("plugins")
@@ -51,13 +49,13 @@ task dll, "Build dlls":
 
 task release, "Release build":
   dllTask()
-  exec "nim c -d:release --opt:speed feudc"
-  exec "nim c -d:release --opt:speed feud"
+  exec "nim c -d:release feudc"
+  exec "nim c -d:release feud"
 
 task binary, "Release binary":
   dllTask()
-  exec "nim c -d:release --opt:speed feudc"
-  exec "nim c -d:binary -d:release --opt:speed feud"
+  exec "nim c -d:release feudc"
+  exec "nim c -d:binary -d:release feud"
 
 task debug, "Debug build":
   exec "nim c --debugger:native feud"

@@ -56,7 +56,7 @@ proc hook(plg: var Plugin) {.feudCallback.} =
   var
     config = plg.getConfig()
 
-  for param in plg.ctx.cmdParam:
+  for param in plg.getParam():
     let
       (hname, hval) = param.splitCmd()
 
@@ -71,7 +71,7 @@ proc runHook(plg: var Plugin) {.feudCallback.} =
   var
     config = plg.getConfig()
 
-  for param in plg.ctx.cmdParam.deepCopy():
+  for param in plg.getParam():
     if config.hooks.hasKey(param):
       for cmd in config.hooks[param]:
         discard plg.ctx.handleCommand(plg.ctx, cmd)
@@ -80,7 +80,7 @@ proc delHook(plg: var Plugin) {.feudCallback.} =
   var
     config = plg.getConfig()
 
-  for param in plg.ctx.cmdParam.deepCopy():
+  for param in plg.getParam():
     if config.hooks.hasKey(param):
       config.hooks.del(param)
 

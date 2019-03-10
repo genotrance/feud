@@ -43,21 +43,21 @@ proc doSet(plg: var Plugin, cmds: string) =
     discard plg.ctx.handleCommand(plg.ctx, "eMsg " & cmd.strip())
 
 template doSet(msgID, wp, lp) =
-  discard plg.ctx.msg(plg.ctx, msgID, wp, lp)
+  discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr)
 
 template doSet(msgID, wp, lp, win) =
-  discard plg.ctx.msg(plg.ctx, msgID, wp, lp, win)
+  discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr, win)
 
 proc setPopupTheme(plg: var Plugin) {.feudCallback.} =
   # Horizontal scroll
-  doSet(SCI_SETSCROLLWIDTH, 1, nil, 0)
-  doSet(SCI_SETSCROLLWIDTHTRACKING, 1, nil, 0)
+  doSet(SCI_SETSCROLLWIDTH, 1, 0, 0)
+  doSet(SCI_SETSCROLLWIDTHTRACKING, 1, 0, 0)
 
   # No margins
-  doSet(SCI_SETMARGINWIDTHN, 1, nil, 0)
+  doSet(SCI_SETMARGINWIDTHN, 1, 0, 0)
 
   # Font
-  doSet(SCI_STYLESETFONT, STYLE_DEFAULT, "Consolas".cstring, 0)
+  discard plg.ctx.msg(plg.ctx, SCI_STYLESETFONT, STYLE_DEFAULT, "Consolas".cstring, 0)
   doSet(SCI_STYLESETSIZE, STYLE_DEFAULT, 12, 0)
 
   # Basic colors
@@ -76,7 +76,7 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
         ""
 
   # Font
-  doSet(SCI_STYLESETFONT, STYLE_DEFAULT, "Consolas".cstring)
+  discard plg.ctx.msg(plg.ctx, SCI_STYLESETFONT, STYLE_DEFAULT, "Consolas".cstring)
   doSet(SCI_STYLESETSIZE, STYLE_DEFAULT, 10)
 
   # Basic colors

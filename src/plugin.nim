@@ -62,7 +62,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
           var
             relbuild =
               when defined(release):
-                "-d:release --opt:speed"
+                "-d:release"
               else:
                 ""
             output = ""

@@ -23,7 +23,7 @@ proc findDocFromString(plg: var Plugin, srch: string): int =
   var
     docs = plg.getDocs()
     scores: seq[int]
-    score = 0
+    score: cint = 0
 
   # Exact match
   for i in 0 .. docs.doclist.len-1:
@@ -158,7 +158,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
       (dir, pat) = path.getDirPat()
       bestscore = 0
       bestmatch = ""
-      score = 0
+      score: cint = 0
     plg.ctx.cmdParam = @[]
     for f in dir.walkDirRec():
       if ".git" notin f:
@@ -169,7 +169,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
     if bestmatch.len != 0:
       discard plg.ctx.handleCommand(plg.ctx, &"togglePopup open {bestmatch}")
 
-  for param in plg.ctx.cmdParam.deepCopy():
+  for param in plg.getParam():
     let
       paths = param.split(" ")
       recurse = "-r" in paths

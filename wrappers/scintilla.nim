@@ -6,7 +6,6 @@ const
   sciDir = currentSourcePath().parentDir().parentDir()/"build"/"scintilla"
 
 static:
-  #cDebug()
   gitPull("https://github.com/mirror/scintilla", sciDir)
 
 cIncludeDir(sciDir/"include")

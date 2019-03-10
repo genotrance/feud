@@ -37,7 +37,7 @@ proc msg*(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil
 
   if windowID > window.editors.len-1:
     return -1
-  return SendMessage(cast[HWND](window.editors[winid]), cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam))
+  return SendMessage(cast[HWND](window.editors[winid]), cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam)).int
 
 proc setFocus(hwnd: HWND) =
   let
@@ -166,7 +166,7 @@ proc toInt(sval: string, ival: var int): bool =
 
 proc eMsg(plg: var Plugin) {.feudCallback.} =
   var
-    params = plg.ctx.cmdParam.deepCopy()
+    params = plg.getParam()
 
   for param in params:
     let
@@ -196,7 +196,7 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
           wc = spl[2].cstring
           ret = msg(plg.ctx, s, l, wc)
         else:
-          ret = msg(plg.ctx, s, l, w)
+          ret = msg(plg.ctx, s, l, w.toPtr)
       else:
         ret = msg(plg.ctx, s, l)
     else:
@@ -279,7 +279,7 @@ proc togglePopup(plg: var Plugin) {.feudCallback.} =
     hwnd.positionPopup()
     if plg.ctx.cmdParam.len != 0:
       let
-        param = plg.ctx.cmdParam[0].deepCopy()
+        param = plg.ctx.cmdParam[0]
       msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & " ").cstring, windowid=0)
       msg(plg.ctx, SCI_GOTOPOS, param.len+1, windowid=0)
     hwnd.ShowWindow(SW_SHOW)
@@ -296,9 +296,7 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
     if hout.len != 0:
       plg.ctx.notify(plg.ctx, hout[0 .. ^2])
   else:
-    let
-      params = plg.ctx.cmdParam.deepCopy()
-    for param in params:
+    for param in plg.getParam():
       let
         (hotkey, val) = param.splitCmd()
 
@@ -355,7 +353,7 @@ proc getPrevHistory(plg: var Plugin) =
 
   if window.history.len != 0 and window.currHist > -1:
     discard msg(plg.ctx, SCI_SETTEXT, 0, window.history[window.currHist].cstring, 0)
-    discard msg(plg.ctx, SCI_GOTOPOS, window.history[window.currHist].len, 0, 0)
+    discard msg(plg.ctx, SCI_GOTOPOS, window.history[window.currHist].len, 0.toPtr, 0)
     window.currHist -= 1
 
 proc getNextHistory(plg: var Plugin) =
@@ -368,7 +366,7 @@ proc getNextHistory(plg: var Plugin) =
     else:
       window.currHist += 1
     discard msg(plg.ctx, SCI_SETTEXT, 0, window.history[window.currHist].cstring, 0)
-    discard msg(plg.ctx, SCI_GOTOPOS, window.history[window.currHist].len, 0, 0)
+    discard msg(plg.ctx, SCI_GOTOPOS, window.history[window.currHist].len, 0.toPtr, 0)
 
 proc addHistory(plg: var Plugin) {.feudCallback.} =
   var
@@ -517,7 +515,7 @@ feudPluginTick:
 
 feudPluginNotify:
   var
-    params = plg.ctx.cmdParam.deepCopy()
+    params = plg.getParam()
   for param in params:
     msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & "\n").cstring, windowid=1)
 

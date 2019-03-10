@@ -12,4 +12,4 @@ static:
 
 {.passC: "--std=c++11 -DFTS_FUZZY_MATCH_IMPLEMENTATION".}
 
-proc fuzzy_match*(pattern, str: cstring, outScore: var int): bool {.importcpp: "fts::fuzzy_match(@)", header: fuzFile.}
+proc fuzzy_match*(pattern, str: cstring, outScore: var cint): bool {.importcpp: "fts::fuzzy_match(@)", header: fuzFile.}
