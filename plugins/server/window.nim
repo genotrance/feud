@@ -12,6 +12,8 @@ type
     frames: seq[pointer]
     editors: seq[pointer]
     hotkeys: TableRef[int, tuple[hotkey, callback: string]]
+    history: seq[string]
+    currHist: int
 
 proc getWindow(plg: var Plugin): Window {.inline.} =
   return getPlgData[Window](plg)
@@ -346,6 +348,51 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
         else:
           window.hotkeys.del(id)
 
+proc getPrevHistory(plg: var Plugin) =
+  var
+    window = plg.getWindow()
+
+  if window.history.len != 0 and window.currHist > -1:
+    discard msg(plg.ctx, SCI_SETTEXT, 0, window.history[window.currHist].cstring, 0)
+    discard msg(plg.ctx, SCI_GOTOPOS, window.history[window.currHist].len, 0, 0)
+    window.currHist -= 1
+
+proc getNextHistory(plg: var Plugin) =
+  var
+    window = plg.getWindow()
+
+  if window.history.len != 0 and window.currHist < window.history.len-2:
+    if window.currHist == -1:
+      window.currHist = 1
+    else:
+      window.currHist += 1
+    discard msg(plg.ctx, SCI_SETTEXT, 0, window.history[window.currHist].cstring, 0)
+    discard msg(plg.ctx, SCI_GOTOPOS, window.history[window.currHist].len, 0, 0)
+
+proc addHistory(plg: var Plugin) {.feudCallback.} =
+  var
+    window = plg.getWindow()
+
+  for param in plg.ctx.cmdParam:
+    let
+      param = param.strip()
+    if param.len != 0:
+      window.history.add param
+
+  window.currHist = window.history.len-1
+
+proc listHistory(plg: var Plugin) {.feudCallback.} =
+  var
+    window = plg.getWindow()
+    nf = ""
+
+  for cmd in window.history:
+    nf &= cmd & "\n"
+
+  if nf.len != 1:
+    nf &= $window.currHist
+    plg.ctx.notify(plg.ctx, nf)
+
 proc execPopup(plg: var Plugin) =
   let
     length = msg(plg.ctx, SCI_GETLENGTH, windowID = 0)
@@ -356,7 +403,12 @@ proc execPopup(plg: var Plugin) =
 
     if msg(plg.ctx, SCI_GETTEXT, length+1, data, 0) == length:
       plg.togglePopup()
-      discard plg.ctx.handleCommand(plg.ctx, ($cast[cstring](data)).strip())
+      let
+        cmd = ($cast[cstring](data)).strip()
+      if cmd.len != 0:
+        plg.ctx.cmdParam = @[cmd]
+        plg.addHistory()
+        discard plg.ctx.handleCommand(plg.ctx, cmd)
 
 proc setTitle(plg: var Plugin) {.feudCallback.} =
   var
@@ -364,6 +416,8 @@ proc setTitle(plg: var Plugin) {.feudCallback.} =
     winid = window.current
   if plg.ctx.cmdParam.len != 0:
     SetWindowText(cast[HWND](window.frames[winid]), plg.ctx.cmdParam[0].cstring)
+
+feudPluginDepends(["config"])
 
 feudPluginLoad:
   var
@@ -391,14 +445,14 @@ feudPluginLoad:
 
   plg.ctx.msg = msg
 
-  discard plg.ctx.handleCommand(plg.ctx, "setTheme")
-  discard plg.ctx.handleCommand(plg.ctx, "setPopupTheme")
+  discard plg.ctx.handleCommand(plg.ctx, "runHook postWindowLoad")
 
 feudPluginTick:
   var
     msg: MSG
     lpmsg = cast[LPMSG](addr msg)
     window = plg.getWindow()
+    done = false
 
   if PeekMessageW(lpmsg, 0, 0, 0, PM_REMOVE) > 0:
     window.last = getTime()
@@ -407,15 +461,11 @@ feudPluginTick:
         id = msg.wparam.int
       if window.hotkeys.hasKey(id):
         discard plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
+      done = true
     elif msg.message == WM_KEYDOWN:
       let
         hwnd = cast[pointer](msg.hwnd)
-      if msg.wparam in [VK_ESCAPE, VK_RETURN] and hwnd == window.editors[0]:
-        if msg.wparam == VK_ESCAPE:
-          plg.togglePopup()
-        elif msg.wparam == VK_RETURN:
-          plg.execPopup()
-      elif hwnd in window.editors:
+      if hwnd in window.editors:
         var
           id = msg.wparam.int shl 8
         if VK_MENU.GetKeyState() < 0: # Alt
@@ -429,10 +479,23 @@ feudPluginTick:
 
         if window.hotkeys.hasKey(id):
           discard plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
-        else:
-          discard TranslateMessage(addr msg)
-          discard DispatchMessageW(addr msg)
-    else:
+          done = true
+        elif hwnd == window.editors[0]:
+          if msg.wparam == VK_ESCAPE:
+            plg.togglePopup()
+            window.currHist = window.history.len-1
+            done = true
+          elif msg.wparam == VK_RETURN:
+            plg.execPopup()
+            done = true
+          elif msg.wparam == VK_UP:
+            plg.getPrevHistory()
+            done = true
+          elif msg.wparam == VK_DOWN:
+            plg.getNextHistory()
+            done = true
+
+    if not done:
       discard TranslateMessage(addr msg)
       discard DispatchMessageW(addr msg)
 
@@ -459,6 +522,8 @@ feudPluginNotify:
 feudPluginUnload:
   var
     window = plg.getWindow()
+
+  discard plg.ctx.handleCommand(plg.ctx, "runHook preWindowUnload")
 
   for i in countdown(window.editors.len-1, 0):
     DestroyWindow(cast[HWND](window.editors[i]))

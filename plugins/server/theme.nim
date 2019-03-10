@@ -114,8 +114,8 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
         if i in gBold:
           plg.doSet(&"SCI_STYLESETBOLD {key} 1")
 
-feudPluginDepends(["window"])
+feudPluginDepends(["config"])
 
 feudPluginLoad:
-  plg.setPopupTheme()
-  plg.setTheme()
+  discard plg.ctx.handleCommand(plg.ctx, "hook postWindowLoad setPopupTheme")
+  discard plg.ctx.handleCommand(plg.ctx, "hook postWindowLoad setTheme")

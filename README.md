@@ -17,6 +17,8 @@ __Navigation__
 Use the `^E` hotkey to bring up the command popup to run any of the following commands. This runs the
 `togglePopup` command internally.
 
+The command popup stores the history of past commands which can be recalled with the Up and Down arrows.
+
 Opening files:
 ```
 open path\to\file.txt  - open specific file
@@ -103,12 +105,12 @@ The full documentation for Scintilla is available [here](https://www.scintilla.o
 __Hooks__
 
 Plugin authors can use hooks to allow users to run custom commands at specific points in their code. For example,
-the `file` plugin enables two hooks: `onFileLoad` and `onFileSwitch`. This allows a user to run custom commands
+the `file` plugin enables two hooks: `postFileLoad` and `postFileSwitch`. This allows a user to run custom commands
 at that point. For example:
 
 ```
-hook onFileSwitch eMsg SCI_SETUSETABS 0
-hook onFileSwitch eMsg SCI_SETTABWIDTH 2
+hook postFileSwitch eMsg SCI_SETUSETABS 0
+hook postFileSwitch eMsg SCI_SETTABWIDTH 2
 ```
 
 This now runs these two `eMsg` commands whenever you switch buffers. The plugin would need to run the `runHook name`

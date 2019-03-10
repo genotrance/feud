@@ -108,7 +108,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
 
   # docs.doclist[docid].path.parentDir().setCurrentDir()
 
-  discard plg.ctx.handleCommand(plg.ctx, "runHook onFileSwitch")
+  discard plg.ctx.handleCommand(plg.ctx, "runHook postFileSwitch")
 
 proc loadFileContents(plg: var Plugin, path: string) =
   if not fileExists(path):
@@ -130,7 +130,7 @@ proc loadFileContents(plg: var Plugin, path: string) =
       break
   f.close()
 
-  discard plg.ctx.handleCommand(plg.ctx, "runHook onFileLoad")
+  discard plg.ctx.handleCommand(plg.ctx, "runHook postFileLoad")
 
 proc open(plg: var Plugin) {.feudCallback.} =
   proc getDirPat(path: string): tuple[dir, pat: string] =

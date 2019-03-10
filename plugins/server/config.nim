@@ -47,7 +47,7 @@ proc config(plg: var Plugin) {.feudCallback.} =
   var
     config = plg.getConfig()
 
-  config.commands = @[]
+  config.commands = @["hook postWindowLoad config"]
   config.hooks = newTable[string, seq[string]]()
 
   plg.loadConfigFile()
@@ -62,7 +62,8 @@ proc hook(plg: var Plugin) {.feudCallback.} =
 
     if hname.len != 0 and hval.len != 0:
       if config.hooks.hasKey(hname):
-        config.hooks[hname].add hval
+        if hval notin config.hooks[hname]:
+          config.hooks[hname].add hval
       else:
         config.hooks[hname] = @[hval]
 
