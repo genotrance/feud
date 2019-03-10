@@ -15,6 +15,7 @@ install:
   - export CHOOSENIM_CHOOSE_VERSION=$BRANCH
   - |
       curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
+      cat init.sh | sed 's/*mingw*/*mingw* | *msys*/' > init.sh
       sh init.sh -y
   - export PATH=$HOME/.nimble/bin:$PATH
 
