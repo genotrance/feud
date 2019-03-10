@@ -11,7 +11,7 @@ bin = @["feud", "feudc"]
 
 requires "nim >= 0.19.0", "nimterop >= 0.1.0", "winim >= 2.5.2", "cligen >= 0.9.17", "nimdeps >= 0.1.0"
 
-import strutils
+import os, strutils
 
 task cleandll, "Clean DLLs":
   var
@@ -39,12 +39,26 @@ task clean, "Clean all":
   rmFile "feudc" & exe
   cleandllTask()
 
+proc buildDlls(path: string) =
+  for dll in listFiles(path):
+    if dll.splitFile.ext == ".nim":
+      exec "nim c --app:lib -d:release --opt:speed " & dll
+
+task dll, "Build dlls":
+  buildDlls("plugins")
+  buildDlls("plugins/server")
+  buildDlls("plugins/client")
+
 task release, "Release build":
-  exec "nim c -d:release feudc"
-  exec "nim c -d:release feud"
+  dllTask()
+  exec "nim c -d:release --opt:speed feudc"
+  exec "nim c -d:release --opt:speed feud"
 
 task binary, "Release binary":
-  exec "nim c -d:binary -d:release feud"
+  dllTask()
+  exec "nim c -d:release --opt:speed feudc"
+  exec "nim c -d:binary -d:release --opt:speed feud"
 
 task debug, "Debug build":
   exec "nim c --debugger:native feud"
+
