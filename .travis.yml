@@ -1,0 +1,23 @@
+os:
+  - windows
+
+language: c
+
+env:
+  - BRANCH=0.19.4
+
+cache:
+  directories:
+    - "$HOME/.choosenim/toolchains/nim-0.19.4"
+
+install:
+  - set -e
+  - export CHOOSENIM_CHOOSE_VERSION=$BRANCH
+  - |
+      curl https://nim-lang.org/choosenim/init.sh -sSf > init.sh
+      sh init.sh -y
+  - export PATH=$HOME/.nimble/bin:$PATH
+
+script:
+  - set -e
+  - nimble binary
