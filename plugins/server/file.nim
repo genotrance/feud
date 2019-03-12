@@ -106,7 +106,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
   if plg.ctx.cmdParam.len != 0:
     discard plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
 
-  # docs.doclist[docid].path.parentDir().setCurrentDir()
+  docs.doclist[docid].path.parentDir().setCurrentDir()
 
   discard plg.ctx.handleCommand(plg.ctx, "runHook postFileSwitch")
 
@@ -208,17 +208,15 @@ proc open(plg: var Plugin) {.feudCallback.} =
               plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
           else:
             var
+              path = path.expandFilename()
               docs = plg.getDocs()
+              info = path.getFileInfo()
+              doc = new(Doc)
 
-            if plg.findDocFromString(path) < 0:
-              var
-                info = path.getFileInfo()
-                doc = new(Doc)
+            doc.path = path
+            doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
 
-              doc.path = path.expandFilename()
-              doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
-
-              docs.doclist.add doc
+            docs.doclist.add doc
 
             plg.switchDoc(docs.doclist.len-1)
 

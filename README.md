@@ -39,6 +39,8 @@ reload                 - reload current buffer
 save                   - save current buffer
 ```
 
+Current directory is relative to the path of the currently loaded file.
+
 Switching buffers:
 ```
 open path\to\file      - switch to buffer if already open
