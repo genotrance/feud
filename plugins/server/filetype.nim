@@ -20,7 +20,13 @@ proc initLangs(plg: var Plugin) =
   var
     lang: Lang
 
-    langfile = currentSourcePath.parentDir()/"langs.model.xml"
+    langfile = getAppDir()/"plugins"/"server"/"langs.model.xml"
+
+  if not langfile.fileExists():
+    echo "Failed to find " & langfile
+    return
+
+  var
     langstream = langfile.newFileStream(fmRead)
     x: XmlParser
 
