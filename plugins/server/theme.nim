@@ -45,27 +45,27 @@ proc doSet(plg: var Plugin, cmds: string) =
 template doSet(msgID, wp, lp) =
   discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr)
 
-template doSet(msgID, wp, lp, win) =
-  discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr, win)
+template doSet(msgID, wp, lp, popup) =
+  discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr, popup)
 
 proc setPopupTheme(plg: var Plugin) {.feudCallback.} =
   # Horizontal scroll
-  doSet(SCI_SETSCROLLWIDTH, 1, 0, 0)
-  doSet(SCI_SETSCROLLWIDTHTRACKING, 1, 0, 0)
+  doSet(SCI_SETSCROLLWIDTH, 1, 0, popup=true)
+  doSet(SCI_SETSCROLLWIDTHTRACKING, 1, 0, popup=true)
 
   # No margins
-  doSet(SCI_SETMARGINWIDTHN, 1, 0, 0)
+  doSet(SCI_SETMARGINWIDTHN, 1, 0, popup=true)
 
   # Font
-  discard plg.ctx.msg(plg.ctx, SCI_STYLESETFONT, STYLE_DEFAULT, "Consolas".cstring, 0)
-  doSet(SCI_STYLESETSIZE, STYLE_DEFAULT, 12, 0)
+  discard plg.ctx.msg(plg.ctx, SCI_STYLESETFONT, STYLE_DEFAULT, "Consolas".cstring, popup=true)
+  doSet(SCI_STYLESETSIZE, STYLE_DEFAULT, 12, popup=true)
 
   # Basic colors
-  doSet(SCI_STYLESETFORE, 0, gBack, 0)
-  doSet(SCI_STYLESETBACK, 0, gFore, 0)
-  doSet(SCI_STYLESETFORE, STYLE_DEFAULT, gBack, 0)
-  doSet(SCI_STYLESETBACK, STYLE_DEFAULT, gFore, 0)
-  doSet(SCI_SETCARETFORE, 0xFFFFFF, 0, 0)
+  doSet(SCI_STYLESETFORE, 0, gBack, popup=true)
+  doSet(SCI_STYLESETBACK, 0, gFore, popup=true)
+  doSet(SCI_STYLESETFORE, STYLE_DEFAULT, gBack, popup=true)
+  doSet(SCI_STYLESETBACK, STYLE_DEFAULT, gFore, popup=true)
+  doSet(SCI_SETCARETFORE, 0xFFFFFF, 0, popup=true)
 
 proc setTheme(plg: var Plugin) {.feudCallback.} =
   let
@@ -117,5 +117,5 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
 feudPluginDepends(["config"])
 
 feudPluginLoad:
-  discard plg.ctx.handleCommand(plg.ctx, "hook postWindowLoad setPopupTheme")
-  discard plg.ctx.handleCommand(plg.ctx, "hook postWindowLoad setTheme")
+  discard plg.ctx.handleCommand(plg.ctx, "hook postNewWindow setPopupTheme")
+  discard plg.ctx.handleCommand(plg.ctx, "hook postNewWindow setTheme")

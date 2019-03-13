@@ -14,6 +14,7 @@ import strutils
 var
   dll = ".dll"
   exe = ".exe"
+  flags = "-d:release"
 
 when defined(Linux):
   dll = ".so"
@@ -49,8 +50,7 @@ proc buildDlls(path: string) =
   for file in listFiles(path):
     if file[^4 .. ^1] == ".nim":
       echo "Building " & file
-      exec "nim c --app:lib -d:release " & file
-  stripDlls(path)
+      exec "nim c --app:lib " & flags & " " & file
 
 proc execDlls(task: proc(path: string)) =
   for dir in ["plugins", "plugins/server", "plugins/client"]:
@@ -58,22 +58,25 @@ proc execDlls(task: proc(path: string)) =
 
 task dll, "Build dlls":
   execDlls(buildDlls)
-  execDlls(stripDlls)
+  if "debug" notin flags:
+    execDlls(stripDlls)
+
+task bin, "Build binaries":
+  exec "nim c " & flags & " feudc"
+  exec "nim c " & flags & " feud"
+  if "debug" notin flags:
+    exec "strip -s feudc" & exe
+    exec "strip -s feud" & exe
 
 task release, "Release build":
   dllTask()
-  exec "nim c -d:release feudc"
-  exec "nim c -d:release feud"
-  exec "strip -s feudc" & exe
-  exec "strip -s feud" & exe
+  binTask()
 
 task binary, "Release binary":
-  dllTask()
-  exec "nim c -d:release feudc"
-  exec "nim c -d:binary -d:release feud"
-  exec "strip -s feudc" & exe
-  exec "strip -s feud" & exe
+  flags = "-d:binary -d:release"
+  releaseTask()
 
 task debug, "Debug build":
-  exec "nim c --debugger:native feud"
+  flags = "--debugger:native --debuginfo"
+  releaseTask()
 

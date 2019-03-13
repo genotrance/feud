@@ -106,7 +106,10 @@ proc switchDoc(plg: var Plugin, docid: int) =
   if plg.ctx.cmdParam.len != 0:
     discard plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
 
-  docs.doclist[docid].path.parentDir().setCurrentDir()
+  if docs.doclist[docid].path != "Notifications":
+    docs.doclist[docid].path.parentDir().setCurrentDir()
+  else:
+    getAppDir().setCurrentDir()
 
   discard plg.ctx.handleCommand(plg.ctx, "runHook postFileSwitch")
 
@@ -339,7 +342,7 @@ feudPluginLoad:
       notif = new(Doc)
     notif.path = "Notifications"
     notif.docptr = plg.ctx.msg(plg.ctx, SCI_GETDOCPOINTER).toPtr
-    discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, notif.docptr, 1)
+    discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, notif.docptr, windowID=0)
 
     docs.doclist.add notif
     docs.current = 0

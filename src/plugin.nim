@@ -64,7 +64,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
               when defined(release):
                 "-d:release"
               else:
-                ""
+                "--debugger:native --debuginfo"
             output = ""
             exitCode = 0
 

@@ -32,7 +32,7 @@ type
   Ctx* = ref object
     run*: bool
 
-    msg*: proc(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, windowID = -1): int
+    msg*: proc(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int
     notify*: proc(ctx: var Ctx, msg: string)
     handleCommand*: proc(ctx: var Ctx, command: string): bool {.nimcall.}
 
