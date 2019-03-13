@@ -6,7 +6,7 @@ when defined(Windows):
 import "../.."/src/pluginapi
 
 type
-  Window = ref object
+  Windows = ref object
     last: Time
     current: int
     frames: seq[pointer]
@@ -15,8 +15,8 @@ type
     history: seq[string]
     currHist: int
 
-proc getWindow(plg: var Plugin): Window {.inline.} =
-  return getPlgData[Window](plg)
+proc getWindows(plg: var Plugin): Windows {.inline.} =
+  return getPlgData[Windows](plg)
 
 proc getPlugin(ctx: var Ctx): Plugin =
   for pl in ctx.plugins.keys():
@@ -26,18 +26,18 @@ proc getPlugin(ctx: var Ctx): Plugin =
 proc msg*(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, windowID = -1): int {.discardable.} =
   var
     plg = ctx.getPlugin()
-    window = plg.getWindow()
+    windows = plg.getWindows()
 
   let
     winid =
       if windowID == -1:
-        window.current
+        windows.current
       else:
         windowID
 
-  if windowID > window.editors.len-1:
+  if windowID > windows.editors.len-1:
     return -1
-  return SendMessage(cast[HWND](window.editors[winid]), cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam)).int
+  return SendMessage(cast[HWND](windows.editors[winid]), cast[UINT](msgID), cast[WPARAM](wparam), cast[LPARAM](lparam)).int
 
 proc setFocus(hwnd: HWND) =
   let
@@ -48,19 +48,19 @@ proc setFocus(hwnd: HWND) =
 
 proc getWinidFromHwnd(plg: var Plugin, hwnd: HWND): int =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
 
-  result = window.frames.find(hwnd)
+  result = windows.frames.find(hwnd)
   if result == -1:
-    result = window.editors.find(hwnd)
+    result = windows.editors.find(hwnd)
 
 proc setCurrentWindow(plg: var Plugin, hwnd: HWND) =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
     winid = plg.getWinidFromHwnd(hwnd)
 
   if winid != -1:
-    window.current = winid
+    windows.current = winid
 
 proc resizeFrame(hwnd: HWND) =
   let
@@ -207,36 +207,36 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
 
 proc setCurrentWindowOnClose(plg: var Plugin, closeid: int) =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
 
   if closeid > 0:
-    if closeid == window.current:
-      if closeid == window.editors.len-1:
-        window.current = window.current - 1
+    if closeid == windows.current:
+      if closeid == windows.editors.len-1:
+        windows.current = windows.current - 1
       else:
-        window.current = window.current + 1
+        windows.current = windows.current + 1
     else:
-      if closeid < window.current:
-        window.current -= 1
+      if closeid < windows.current:
+        windows.current -= 1
 
 proc newWindow(plg: var Plugin) {.feudCallback.} =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
     frame = plg.createFrame(show=false)
 
-  window.frames.add cast[pointer](frame)
-  window.editors.add cast[pointer](createWindow(frame))
+  windows.frames.add cast[pointer](frame)
+  windows.editors.add cast[pointer](createWindow(frame))
   frame.resizeFrame()
   frame.ShowWindow(SW_SHOW)
-  window.current = window.editors.len-1
+  windows.current = windows.editors.len-1
   msg(plg.ctx, SCI_GRABFOCUS)
 
   discard plg.ctx.handleCommand(plg.ctx, "setTheme")
 
 proc closeWindow(plg: var Plugin) {.feudCallback.} =
   var
-    window = plg.getWindow()
-    winid = window.current
+    windows = plg.getWindows()
+    winid = windows.current
 
   if plg.ctx.cmdParam.len != 0:
     try:
@@ -244,12 +244,12 @@ proc closeWindow(plg: var Plugin) {.feudCallback.} =
     except:
       return
 
-  if winid < window.editors.len:
-    DestroyWindow(cast[HWND](window.editors[winid]))
-    DestroyWindow(cast[HWND](window.frames[winid]))
+  if winid < windows.editors.len:
+    DestroyWindow(cast[HWND](windows.editors[winid]))
+    DestroyWindow(cast[HWND](windows.frames[winid]))
     plg.setCurrentWindowOnClose(winid)
-    window.editors.delete(winid)
-    window.frames.delete(winid)
+    windows.editors.delete(winid)
+    windows.frames.delete(winid)
     msg(plg.ctx, SCI_GRABFOCUS)
 
 proc positionPopup(hwnd: HWND) =
@@ -268,8 +268,8 @@ proc positionPopup(hwnd: HWND) =
 
 proc togglePopup(plg: var Plugin) {.feudCallback.} =
   var
-    window = plg.getWindow()
-    hwnd = cast[HWND](window.editors[0])
+    windows = plg.getWindows()
+    hwnd = cast[HWND](windows.editors[0])
 
   if hwnd.IsWindowVisible() == 1:
     msg(plg.ctx, SCI_CLEARALL, windowid=0)
@@ -286,12 +286,12 @@ proc togglePopup(plg: var Plugin) {.feudCallback.} =
 
 proc hotkey(plg: var Plugin) {.feudCallback.} =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
   if plg.ctx.cmdParam.len == 0:
     var hout = ""
 
-    for hotkey in window.hotkeys.keys():
-      hout &= window.hotkeys[hotkey].hotkey & " = " & window.hotkeys[hotkey].callback & "\n"
+    for hotkey in windows.hotkeys.keys():
+      hout &= windows.hotkeys[hotkey].hotkey & " = " & windows.hotkeys[hotkey].callback & "\n"
 
     if hout.len != 0:
       plg.ctx.notify(plg.ctx, hout[0 .. ^2])
@@ -334,7 +334,7 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
         if ret != 1:
           plg.ctx.notify(plg.ctx, strformat.`&`("Failed to register hotkey {hotkey}"))
         else:
-          window.hotkeys[id] = (hotkey, val)
+          windows.hotkeys[id] = (hotkey, val)
       else:
         ret =
           if global:
@@ -345,51 +345,51 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
         if ret != 1:
           plg.ctx.notify(plg.ctx, strformat.`&`("Failed to unregister hotkey {hotkey}"))
         else:
-          window.hotkeys.del(id)
+          windows.hotkeys.del(id)
 
 proc getPrevHistory(plg: var Plugin) =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
 
-  if window.history.len != 0 and window.currHist > -1:
-    discard msg(plg.ctx, SCI_SETTEXT, 0, window.history[window.currHist].cstring, 0)
-    discard msg(plg.ctx, SCI_GOTOPOS, window.history[window.currHist].len, 0.toPtr, 0)
-    window.currHist -= 1
+  if windows.history.len != 0 and windows.currHist > -1:
+    discard msg(plg.ctx, SCI_SETTEXT, 0, windows.history[windows.currHist].cstring, 0)
+    discard msg(plg.ctx, SCI_GOTOPOS, windows.history[windows.currHist].len, 0.toPtr, 0)
+    windows.currHist -= 1
 
 proc getNextHistory(plg: var Plugin) =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
 
-  if window.history.len != 0 and window.currHist < window.history.len-2:
-    if window.currHist == -1:
-      window.currHist = 1
+  if windows.history.len != 0 and windows.currHist < windows.history.len-2:
+    if windows.currHist == -1:
+      windows.currHist = 1
     else:
-      window.currHist += 1
-    discard msg(plg.ctx, SCI_SETTEXT, 0, window.history[window.currHist].cstring, 0)
-    discard msg(plg.ctx, SCI_GOTOPOS, window.history[window.currHist].len, 0.toPtr, 0)
+      windows.currHist += 1
+    discard msg(plg.ctx, SCI_SETTEXT, 0, windows.history[windows.currHist].cstring, 0)
+    discard msg(plg.ctx, SCI_GOTOPOS, windows.history[windows.currHist].len, 0.toPtr, 0)
 
 proc addHistory(plg: var Plugin) {.feudCallback.} =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
 
   for param in plg.ctx.cmdParam:
     let
       param = param.strip()
     if param.len != 0:
-      window.history.add param
+      windows.history.add param
 
-  window.currHist = window.history.len-1
+  windows.currHist = windows.history.len-1
 
 proc listHistory(plg: var Plugin) {.feudCallback.} =
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
     nf = ""
 
-  for cmd in window.history:
+  for cmd in windows.history:
     nf &= cmd & "\n"
 
   if nf.len != 1:
-    nf &= $window.currHist
+    nf &= $windows.currHist
     plg.ctx.notify(plg.ctx, nf)
 
 proc execPopup(plg: var Plugin) =
@@ -411,37 +411,37 @@ proc execPopup(plg: var Plugin) =
 
 proc setTitle(plg: var Plugin) {.feudCallback.} =
   var
-    window = plg.getWindow()
-    winid = window.current
+    windows = plg.getWindows()
+    winid = windows.current
   if plg.ctx.cmdParam.len != 0:
-    SetWindowText(cast[HWND](window.frames[winid]), plg.ctx.cmdParam[0].cstring)
+    SetWindowText(cast[HWND](windows.frames[winid]), plg.ctx.cmdParam[0].cstring)
 
 feudPluginDepends(["config"])
 
 feudPluginLoad:
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
     frame: HWND
 
   registerFrame()
 
-  window.frames.add nil
-  window.editors.add cast[pointer](createPopup())
+  windows.frames.add nil
+  windows.editors.add cast[pointer](createPopup())
 
   frame = plg.createFrame(show=false)
-  window.frames.add cast[pointer](frame)
-  window.editors.add cast[pointer](createWindow(frame, show=false))
+  windows.frames.add cast[pointer](frame)
+  windows.editors.add cast[pointer](createWindow(frame, show=false))
 
   frame = plg.createFrame(show=false)
-  window.frames.add cast[pointer](frame)
-  window.editors.add cast[pointer](createWindow(frame))
+  windows.frames.add cast[pointer](frame)
+  windows.editors.add cast[pointer](createWindow(frame))
   frame.resizeFrame()
   frame.ShowWindow(SW_SHOW)
-  window.current = 2
+  windows.current = 2
   msg(plg.ctx, SCI_GRABFOCUS)
 
-  window.hotkeys = newTable[int, tuple[hotkey, callback: string]]()
-  window.last = getTime()
+  windows.hotkeys = newTable[int, tuple[hotkey, callback: string]]()
+  windows.last = getTime()
 
   plg.ctx.msg = msg
 
@@ -451,21 +451,21 @@ feudPluginTick:
   var
     msg: MSG
     lpmsg = cast[LPMSG](addr msg)
-    window = plg.getWindow()
+    windows = plg.getWindows()
     done = false
 
   if PeekMessageW(lpmsg, 0, 0, 0, PM_REMOVE) > 0:
-    window.last = getTime()
+    windows.last = getTime()
     if msg.message == WM_HOTKEY:
       let
         id = msg.wparam.int
-      if window.hotkeys.hasKey(id):
-        discard plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
+      if windows.hotkeys.hasKey(id):
+        discard plg.ctx.handleCommand(plg.ctx, windows.hotkeys[id].callback)
       done = true
     elif msg.message == WM_KEYDOWN:
       let
         hwnd = cast[pointer](msg.hwnd)
-      if hwnd in window.editors:
+      if hwnd in windows.editors:
         var
           id = msg.wparam.int shl 8
         if VK_MENU.GetKeyState() < 0: # Alt
@@ -477,13 +477,13 @@ feudPluginTick:
         if VK_LWIN.GetKeyState() < 0 or VK_RWIN.GetKeyState() < 0:
           id = id or MOD_WIN
 
-        if window.hotkeys.hasKey(id):
-          discard plg.ctx.handleCommand(plg.ctx, window.hotkeys[id].callback)
+        if windows.hotkeys.hasKey(id):
+          discard plg.ctx.handleCommand(plg.ctx, windows.hotkeys[id].callback)
           done = true
-        elif hwnd == window.editors[0]:
+        elif hwnd == windows.editors[0]:
           if msg.wparam == VK_ESCAPE:
             plg.togglePopup()
-            window.currHist = window.history.len-1
+            windows.currHist = windows.history.len-1
             done = true
           elif msg.wparam == VK_RETURN:
             plg.execPopup()
@@ -500,17 +500,17 @@ feudPluginTick:
       discard DispatchMessageW(addr msg)
 
   if plg.ctx.tick mod 20 == 0:
-    for i in countdown(window.editors.len-1, 0):
-      if IsWindow(cast[HWND](window.editors[i])) == 0:
-        DestroyWindow(cast[HWND](window.editors[i]))
-        DestroyWindow(cast[HWND](window.frames[i]))
+    for i in countdown(windows.editors.len-1, 0):
+      if IsWindow(cast[HWND](windows.editors[i])) == 0:
+        DestroyWindow(cast[HWND](windows.editors[i]))
+        DestroyWindow(cast[HWND](windows.frames[i]))
         plg.setCurrentWindowOnClose(i)
-        window.editors.delete(i)
-        window.frames.delete(i)
-    if window.editors.len == 2:
+        windows.editors.delete(i)
+        windows.frames.delete(i)
+    if windows.editors.len == 2:
       discard plg.ctx.handleCommand(plg.ctx, "quit")
 
-  if getTime() - window.last > initDuration(milliseconds=1):
+  if getTime() - windows.last > initDuration(milliseconds=1):
     sleep(5)
 
 feudPluginNotify:
@@ -521,22 +521,22 @@ feudPluginNotify:
 
 feudPluginUnload:
   var
-    window = plg.getWindow()
+    windows = plg.getWindows()
 
   discard plg.ctx.handleCommand(plg.ctx, "runHook preWindowUnload")
 
-  for i in countdown(window.editors.len-1, 0):
-    DestroyWindow(cast[HWND](window.editors[i]))
-    DestroyWindow(cast[HWND](window.frames[i]))
+  for i in countdown(windows.editors.len-1, 0):
+    DestroyWindow(cast[HWND](windows.editors[i]))
+    DestroyWindow(cast[HWND](windows.frames[i]))
     plg.setCurrentWindowOnClose(i)
-    discard window.editors.pop()
-    discard window.frames.pop()
+    discard windows.editors.pop()
+    discard windows.frames.pop()
 
-  for id in window.hotkeys.keys():
+  for id in windows.hotkeys.keys():
     UnregisterHotKey(0, id.int32)
 
   unregisterFrame()
 
-  freePlgData[Window](plg)
+  freePlgData[Windows](plg)
 
   plg.ctx.msg = nil
