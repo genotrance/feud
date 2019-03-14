@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/genotrance/feud.svg?branch=master)](https://travis-ci.org/genotrance/feud)
+
 Feud is a text editor based on Scintilla and written in Nim
 
 ![Screenshot](https://i.imgur.com/aPwQxB1.jpg)
@@ -21,6 +23,8 @@ The command popup stores the history of past commands which can be recalled with
 
 Opening files:
 ```
+newDoc                 - open a new buffer
+
 open path\to\file.txt  - open specific file
 open ..\*.nim          - open all files that match wildcard
 open path\to\dir       - open all files in directory
@@ -37,6 +41,7 @@ open -f path\to\fl     - fuzzy find file in path\to dir tree
 
 reload                 - reload current buffer
 save                   - save current buffer
+saveAs <fullpath>      - save current buffer to new path
 ```
 
 Current directory is relative to the path of the currently loaded file.

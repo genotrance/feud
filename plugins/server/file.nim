@@ -106,7 +106,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
   if plg.ctx.cmdParam.len != 0:
     discard plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
 
-  if docs.doclist[docid].path != "Notifications":
+  if docs.doclist[docid].path notin ["Notifications", "New document"]:
     docs.doclist[docid].path.parentDir().setCurrentDir()
   else:
     getAppDir().setCurrentDir()
@@ -134,6 +134,18 @@ proc loadFileContents(plg: var Plugin, path: string) =
   f.close()
 
   discard plg.ctx.handleCommand(plg.ctx, "runHook postFileLoad")
+
+proc newDoc(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+    doc = new(Doc)
+
+  doc.path = "New document"
+  doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, 0.toPtr).toPtr
+
+  docs.doclist.add doc
+
+  plg.switchDoc(docs.doclist.len-1)
 
 proc open(plg: var Plugin) {.feudCallback.} =
   proc getDirPat(path: string): tuple[dir, pat: string] =
@@ -232,10 +244,18 @@ proc save(plg: var Plugin) {.feudCallback.} =
     docs = plg.getDocs()
 
   if docs.doclist.len != 0 and docs.current != 0:
-    discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 1.toPtr)
-
     let
       doc = docs.doclist[docs.current]
+
+    if doc.path == "New document":
+      plg.ctx.notify(plg.ctx, &"Save new document using saveAs <fullpath>")
+      return
+
+    discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 1.toPtr)
+    defer:
+      discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 0.toPtr)
+
+    let
       data = cast[cstring](plg.ctx.msg(plg.ctx, SCI_GETCHARACTERPOINTER))
 
     try:
@@ -244,10 +264,20 @@ proc save(plg: var Plugin) {.feudCallback.} =
       f.write(data)
       f.close()
       plg.ctx.notify(plg.ctx, &"Saved {doc.path}")
+
+      discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docs.current}: {doc.path}")
     except:
       plg.ctx.notify(plg.ctx, &"Failed to save {doc.path}")
 
-    discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 0.toPtr)
+proc saveAs(plg: var Plugin) {.feudCallback.} =
+  if plg.ctx.cmdParam.len != 0:
+    var
+      docs = plg.getDocs()
+      doc = docs.doclist[docs.current]
+
+    doc.path = plg.ctx.cmdParam[0].expandFilename()
+
+    plg.save()
 
 proc list(plg: var Plugin) {.feudCallback.} =
   var
