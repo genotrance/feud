@@ -27,7 +27,7 @@ const SciDefs* = (block:
       if "#define" in line:
         var
           spl = line.split(' ')
-        if spl.len == 3 and spl[1][0] == 'S':
+        if spl.len == 3 and spl[1][0] in ['S', 'I']:
           let
             parseProc = if "0x" in spl[2]: parseHexInt else: parseInt
           scvr[spl[1]] = spl[2].parseProc()
@@ -114,3 +114,14 @@ proc freePlgData*[T](plg: var Plugin) =
     GC_unref(data)
 
     plg.pluginData = nil
+
+proc getSelection*(plg: var Plugin): string =
+  let
+    length = plg.ctx.msg(plg.ctx, SCI_GETSELTEXT, 0, nil)
+  if length != 0:
+    var
+      data = alloc0(length+1)
+    defer: data.dealloc()
+
+    discard plg.ctx.msg(plg.ctx, SCI_GETSELTEXT, 0, data)
+    result = ($cast[cstring](data)).strip()

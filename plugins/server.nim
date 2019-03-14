@@ -111,6 +111,9 @@ proc restartServer(plg: var Plugin) {.feudCallback.} =
   plg.initServer()
 
 proc readServer(plg: var Plugin) =
+  if plg.pluginData.isNil:
+    return
+
   var
     pserver = plg.getServer()
     mode = ""
@@ -129,6 +132,9 @@ proc readServer(plg: var Plugin) =
       pserver[].recvBuf = @[]
 
 proc sendServer(plg: var Plugin) {.feudCallback.} =
+  if plg.pluginData.isNil:
+    return
+
   var
     pserver = plg.getServer()
 
@@ -137,6 +143,9 @@ proc sendServer(plg: var Plugin) {.feudCallback.} =
       pserver[].sendBuf.add plg.ctx.cmdParam[0]
 
 proc notifyClient(plg: var Plugin) =
+  if plg.pluginData.isNil:
+    return
+
   var
     pserver = plg.getServer()
     mode = ""

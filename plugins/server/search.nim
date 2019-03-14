@@ -46,15 +46,7 @@ proc search(plg: var Plugin) {.feudCallback.} =
               search.needle &= " " & param
 
   if search.needle.len == 0:
-    let
-      length = plg.ctx.msg(plg.ctx, SCI_GETSELTEXT, 0, nil)
-    if length != 0:
-      var
-        data = alloc0(length+1)
-      defer: data.dealloc()
-      
-      discard plg.ctx.msg(plg.ctx, SCI_GETSELTEXT, 0, data)
-      search.needle = ($cast[cstring](data)).strip()
+    search.needle = plg.getSelection()
 
   if search.needle.len != 0:
     let
@@ -92,4 +84,38 @@ proc search(plg: var Plugin) {.feudCallback.} =
   else:
     discard plg.ctx.handleCommand(plg.ctx, "togglePopup search")
 
-feudPluginLoad()
+proc unhighlight(plg: var Plugin) {.feudCallback.} =
+  let
+    length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
+  discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
+  discard plg.ctx.msg(plg.ctx, SCI_INDICATORCLEARRANGE, 0, length.toPtr)
+
+proc highlight(plg: var Plugin) {.feudCallback.} =
+  let
+    search = plg.getSelection()
+    length = search.len
+
+  if length != 0:
+    var
+      matches: seq[int]
+      pos = 0
+    while pos != -1:
+      discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
+      discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, pos)
+      pos = plg.ctx.msg(plg.ctx, SCI_SEARCHINTARGET, search.len, search.cstring)
+      if pos != -1:
+        matches.add pos
+        pos += 1
+
+    if matches.len != 0:
+      discard plg.ctx.handleCommand(plg.ctx, "runHook preSearchHighlight")
+      discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
+      for match in matches:
+        discard plg.ctx.msg(plg.ctx, SCI_INDICATORFILLRANGE, match, length.toPtr)
+  else:
+    plg.unhighlight()
+
+feudPluginDepends(["config"])
+
+feudPluginLoad:
+  discard plg.ctx.handleCommand(plg.ctx, "hook onWindowSelection highlight")

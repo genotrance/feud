@@ -36,6 +36,9 @@ proc msg*(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil
     plg = ctx.getPlugin()
     windows = plg.getWindows()
 
+  if windows.editors.len == 0:
+    return
+
   let
     winid =
       if windowID == -1:
@@ -90,11 +93,15 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
         continue
 
       if spl.len > 2:
-        if not spl[2].toInt(w):
-          wc = spl[2].cstring
-          ret = msg(plg.ctx, s, l, wc)
-        else:
+        if SciDefs.hasKey(spl[2]):
+          w = SciDefs[spl[2]]
           ret = msg(plg.ctx, s, l, w.toPtr)
+        else:
+          if not spl[2].toInt(w):
+            wc = spl[2].cstring
+            ret = msg(plg.ctx, s, l, wc)
+          else:
+            ret = msg(plg.ctx, s, l, w.toPtr)
       else:
         ret = msg(plg.ctx, s, l)
     else:
@@ -164,6 +171,15 @@ proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESU
       hwnd.DestroyWindow()
     of WM_DESTROY:
       PostQuitMessage(0)
+    of WM_NOTIFY:
+      var
+        notify = cast[ptr SCNotification](lParam)
+        hdr = cast[ptr NMHDR](lParam)
+      if hdr[].code == SCN_UPDATEUI:
+        if (notify[].updated and SC_UPDATE_CONTENT) != 0:
+          discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowContent")
+        elif (notify[].updated and SC_UPDATE_SELECTION) != 0:
+          discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowSelection")
     of WM_SIZE:
       hwnd.resizeFrame()
     else:
@@ -547,8 +563,9 @@ feudPluginTick:
 
 feudPluginNotify:
   var
-    params = plg.getParam()
-  for param in params:
+    windows = plg.getWindows()
+
+  for param in plg.getParam():
     msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & "\n").cstring, windowid=0)
 
 feudPluginUnload:
