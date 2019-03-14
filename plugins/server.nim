@@ -149,8 +149,7 @@ proc notifyClient(plg: var Plugin) =
       withLock pserver[].lock:
         pserver[].sendBuf.add plg.ctx.cmdParam[0]
 
-feudPluginLoad:
-  plg.initServer()
+feudPluginLoad()
 
 feudPluginTick:
   plg.readServer()

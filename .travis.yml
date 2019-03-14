@@ -10,6 +10,8 @@ cache:
   directories:
     - "$HOME/.choosenim/toolchains/nim-0.19.4"
 
+if: tag IS blank
+
 install:
   - set -e
   - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=choosenim.exe" -o choosenim.exe
@@ -44,4 +46,3 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
-    tags: false

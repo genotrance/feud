@@ -62,6 +62,17 @@ close X                - close buffer similar to switching
 closeAll               - close all open buffers
 ```
 
+Searching:
+```
+search string          - search for string
+search -r string       - search backwards for string
+search -c strinG       - case sensitive search
+search -w word         - whole word search
+search -p str\ning     - posix search with escaped chars
+search -x re.*?gex     - basic regular expression search
+search -X re.*?gex     - full C++11 regex search
+```
+
 Windows:
 ```
 newWindow              - open a new editor window
