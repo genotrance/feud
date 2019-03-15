@@ -95,6 +95,7 @@ proc highlight(plg: var Plugin) {.feudCallback.} =
     search = plg.getSelection()
     length = search.len
 
+  plg.unhighlight()
   if length != 0:
     var
       matches: seq[int]
@@ -112,8 +113,6 @@ proc highlight(plg: var Plugin) {.feudCallback.} =
       discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
       for match in matches:
         discard plg.ctx.msg(plg.ctx, SCI_INDICATORFILLRANGE, match, length.toPtr)
-  else:
-    plg.unhighlight()
 
 feudPluginDepends(["config"])
 
