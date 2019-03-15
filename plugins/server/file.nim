@@ -12,11 +12,21 @@ type
     cursor: int
 
   Docs = ref object
-    current: int
     doclist: seq[Doc]
 
 proc getDocs(plg: var Plugin): Docs =
   return getCtxData[Docs](plg)
+
+proc getDocId(plg: var Plugin): int =
+  result = -1
+  if plg.ctx.handleCommand(plg.ctx, "getDocId"):
+    try:
+      result = plg.ctx.cmdParam[0].parseInt()
+    except:
+      discard
+
+proc setDocId(plg: var Plugin, docid: int) =
+  discard plg.ctx.handleCommand(plg.ctx, &"setDocId {docid}")
 
 proc findDocFromString(plg: var Plugin, srch: string): int =
   result = -1
@@ -72,7 +82,7 @@ proc findDocFromParam(plg: var Plugin, param: string): int =
 
   result =
     if param.len == 0:
-      docs.current
+      plg.getDocId()
     else:
       plg.findDocFromString(param)
 
@@ -88,17 +98,18 @@ proc findDocFromParam(plg: var Plugin, param: string): int =
 proc switchDoc(plg: var Plugin, docid: int) =
   var
     docs = plg.getDocs()
+    current = plg.getDocId()
 
-  if docid < 0 or docid > docs.doclist.len-1 or docid == docs.current:
+  if docid < 0 or docid > docs.doclist.len-1 or current < 0 or docid == current:
     return
 
-  docs.doclist[docs.current].cursor = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
-  discard plg.ctx.msg(plg.ctx, SCI_ADDREFDOCUMENT, 0, docs.doclist[docs.current].docptr)
+  docs.doclist[current].cursor = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
+  discard plg.ctx.msg(plg.ctx, SCI_ADDREFDOCUMENT, 0, docs.doclist[current].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, docs.doclist[docid].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, docs.doclist[docid].cursor)
 
-  docs.current = docid
+  plg.setDocId(docid)
 
   discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docid}: {docs.doclist[docid].path}")
 
@@ -242,10 +253,11 @@ proc open(plg: var Plugin) {.feudCallback.} =
 proc save(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
+    current = plg.getDocId()
 
-  if docs.doclist.len != 0 and docs.current != 0:
+  if docs.doclist.len != 0 and current > 0:
     let
-      doc = docs.doclist[docs.current]
+      doc = docs.doclist[current]
 
     if doc.path == "New document":
       plg.ctx.notify(plg.ctx, &"Save new document using saveAs <fullpath>")
@@ -265,7 +277,7 @@ proc save(plg: var Plugin) {.feudCallback.} =
       f.close()
       plg.ctx.notify(plg.ctx, &"Saved {doc.path}")
 
-      discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docs.current}: {doc.path}")
+      discard plg.ctx.handleCommand(plg.ctx, &"setTitle {current}: {doc.path}")
     except:
       plg.ctx.notify(plg.ctx, &"Failed to save {doc.path}")
 
@@ -273,7 +285,7 @@ proc saveAs(plg: var Plugin) {.feudCallback.} =
   if plg.ctx.cmdParam.len != 0:
     var
       docs = plg.getDocs()
-      doc = docs.doclist[docs.current]
+      doc = docs.doclist[plg.getDocId()]
 
     doc.path = plg.ctx.cmdParam[0].expandFilename()
 
@@ -300,16 +312,17 @@ proc close(plg: var Plugin) {.feudCallback.} =
 
   var
     docid = plg.findDocFromParam(param)
+    current = plg.getDocId()
 
-  if docid > 0:
-    if docid == docs.current:
+  if docid > 0 and current > -1:
+    if docid == current:
       if docid == docs.doclist.len-1:
         plg.switchDoc(docid-1)
       else:
         plg.switchDoc(docid+1)
     else:
-      if docid < docs.current:
-        docs.current -= 1
+      if docid < current:
+        plg.setDocId(current-1)
 
     discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
     docs.doclist.del(docid)
@@ -325,7 +338,7 @@ proc closeAll(plg: var Plugin) {.feudCallback.} =
 proc reload(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
-    docid = docs.current
+    docid = plg.getDocId()
 
   if docid > 0:
     let
@@ -341,7 +354,7 @@ proc next(plg: var Plugin) {.feudCallback.} =
 
   if docs.doclist.len != 1:
     var
-      docid = docs.current
+      docid = plg.getDocId()
     docid += 1
     if docid == docs.doclist.len:
       docid = 0
@@ -354,7 +367,7 @@ proc prev(plg: var Plugin) {.feudCallback.} =
 
   if docs.doclist.len != 1:
     var
-      docid = docs.current
+      docid = plg.getDocId()
     docid -= 1
     if docid < 0:
       docid = docs.doclist.len-1
@@ -375,4 +388,4 @@ feudPluginLoad:
     discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, notif.docptr, windowID=0)
 
     docs.doclist.add notif
-    docs.current = 0
+    plg.setDocId(0)

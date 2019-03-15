@@ -78,7 +78,7 @@ proc search(plg: var Plugin) {.feudCallback.} =
       discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
       discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, curpos+1)
       pos = plg.ctx.msg(plg.ctx, SCI_SEARCHINTARGET, search.needle.len, search.needle.cstring)
-        
+
     if pos != -1:
       discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, pos)
   else:
@@ -102,6 +102,7 @@ proc highlight(plg: var Plugin) {.feudCallback.} =
       pos = 0
     while pos != -1:
       discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
+      discard plg.ctx.msg(plg.ctx, SCI_SETSEARCHFLAGS, SCFIND_MATCHCASE)
       discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, pos)
       pos = plg.ctx.msg(plg.ctx, SCI_SEARCHINTARGET, search.len, search.cstring)
       if pos != -1:

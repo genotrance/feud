@@ -479,6 +479,26 @@ proc execPopup(plg: var Plugin) =
         plg.addHistory()
         discard plg.ctx.handleCommand(plg.ctx, cmd)
 
+proc getDocId(plg: var Plugin) {.feudCallback.} =
+  var
+    windows = plg.getWindows()
+    winid = windows.current
+
+  plg.ctx.cmdParam = @[$(windows.editors[winid].docid)]
+
+proc setDocId(plg: var Plugin) {.feudCallback.} =
+  if plg.ctx.cmdParam.len != 0:
+    var
+      windows = plg.getWindows()
+      winid = windows.current
+      docid = -1
+
+    try:
+      docid = plg.ctx.cmdParam[0].parseInt()
+      windows.editors[winid].docid = docid
+    except:
+      discard
+
 feudPluginDepends(["config"])
 
 feudPluginLoad:
