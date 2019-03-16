@@ -129,6 +129,12 @@ proc getWinidFromHwnd(plg: var Plugin, hwnd: HWND): int =
       result = i
       break
 
+proc getCurrentWindow(plg: var Plugin) {.feudCallback.} =
+  var
+    windows = plg.getWindows()
+
+  plg.ctx.cmdParam = @[$(windows.current)]
+
 proc setCurrentWindow(plg: var Plugin, hwnd: HWND) =
   var
     windows = plg.getWindows()
@@ -484,7 +490,7 @@ proc getDocId(plg: var Plugin) {.feudCallback.} =
     windows = plg.getWindows()
     winid = windows.current
 
-  plg.ctx.cmdParam = @[$(windows.editors[winid].docid)]
+  plg.ctx.cmdParam = @[$windows.editors[winid].docid]
 
 proc setDocId(plg: var Plugin) {.feudCallback.} =
   if plg.ctx.cmdParam.len != 0:

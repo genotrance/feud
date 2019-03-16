@@ -1,4 +1,4 @@
-import os, segfaults, sequtils, strformat, strutils, tables
+import os, segfaults, sequtils, sets, strformat, strutils, tables
 
 import "../.."/src/pluginapi
 import "../.."/wrappers/fuzzy
@@ -10,12 +10,21 @@ type
     path: string
     docptr: pointer
     cursor: int
+    windows: HashSet[int]
 
   Docs = ref object
     doclist: seq[Doc]
 
 proc getDocs(plg: var Plugin): Docs =
   return getCtxData[Docs](plg)
+
+proc getCurrentWindow(plg: var Plugin): int =
+  result = -1
+  if plg.ctx.handleCommand(plg.ctx, "getCurrentWindow"):
+    try:
+      result = plg.ctx.cmdParam[0].parseInt()
+    except:
+      discard
 
 proc getDocId(plg: var Plugin): int =
   result = -1
@@ -98,20 +107,24 @@ proc findDocFromParam(plg: var Plugin, param: string): int =
 proc switchDoc(plg: var Plugin, docid: int) =
   var
     docs = plg.getDocs()
-    current = plg.getDocId()
+    currDoc = plg.getDocId()
+    currWindow = plg.getCurrentWindow()
 
-  if docid < 0 or docid > docs.doclist.len-1 or current < 0 or docid == current:
+  if docid < 0 or docid > docs.doclist.len-1 or currWindow < 0 or currDoc < 0 or docid == currDoc:
     return
 
-  docs.doclist[current].cursor = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
-  discard plg.ctx.msg(plg.ctx, SCI_ADDREFDOCUMENT, 0, docs.doclist[current].docptr)
+  docs.doclist[currDoc].cursor = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
+  discard plg.ctx.msg(plg.ctx, SCI_ADDREFDOCUMENT, 0, docs.doclist[currDoc].docptr)
+  docs.doclist[currDoc].windows.excl currWindow
+
+  docs.doclist[docid].windows.incl currWindow
   discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, docs.doclist[docid].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, docs.doclist[docid].cursor)
 
   plg.setDocId(docid)
 
-  discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docid}: {docs.doclist[docid].path}")
+  discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docs.doclist[docid].path}")
 
   discard plg.ctx.handleCommand(plg.ctx, "setLexer " & docs.doclist[docid].path)
   if plg.ctx.cmdParam.len != 0:
@@ -151,6 +164,7 @@ proc newDoc(plg: var Plugin) {.feudCallback.} =
     docs = plg.getDocs()
     doc = new(Doc)
 
+  doc.windows.init()
   doc.path = "New document"
   doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, 0.toPtr).toPtr
 
@@ -239,6 +253,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
               info = path.getFileInfo()
               doc = new(Doc)
 
+            doc.windows.init()
             doc.path = path
             doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
 
@@ -253,11 +268,11 @@ proc open(plg: var Plugin) {.feudCallback.} =
 proc save(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
-    current = plg.getDocId()
+    currDoc = plg.getDocId()
 
-  if docs.doclist.len != 0 and current > 0:
+  if docs.doclist.len != 0 and currDoc > 0:
     let
-      doc = docs.doclist[current]
+      doc = docs.doclist[currDoc]
 
     if doc.path == "New document":
       plg.ctx.notify(plg.ctx, &"Save new document using saveAs <fullpath>")
@@ -277,7 +292,7 @@ proc save(plg: var Plugin) {.feudCallback.} =
       f.close()
       plg.ctx.notify(plg.ctx, &"Saved {doc.path}")
 
-      discard plg.ctx.handleCommand(plg.ctx, &"setTitle {current}: {doc.path}")
+      discard plg.ctx.handleCommand(plg.ctx, &"setTitle {currDoc}: {doc.path}")
     except:
       plg.ctx.notify(plg.ctx, &"Failed to save {doc.path}")
 
@@ -312,20 +327,21 @@ proc close(plg: var Plugin) {.feudCallback.} =
 
   var
     docid = plg.findDocFromParam(param)
-    current = plg.getDocId()
+    currDoc = plg.getDocId()
 
-  if docid > 0 and current > -1:
-    if docid == current:
+  if docid > 0 and currDoc > -1:
+    if docid == currDoc:
       if docid == docs.doclist.len-1:
         plg.switchDoc(docid-1)
       else:
         plg.switchDoc(docid+1)
-    else:
-      if docid < current:
-        plg.setDocId(current-1)
 
-    discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
-    docs.doclist.del(docid)
+    if docs.doclist[docid].windows.len == 0:
+      discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
+      docs.doclist.del(docid)
+      currDoc = plg.getDocId()
+      if docid < currDoc:
+        plg.setDocId(currDoc-1)
 
 proc closeAll(plg: var Plugin) {.feudCallback.} =
   var
@@ -383,6 +399,7 @@ feudPluginLoad:
   if docs.doclist.len == 0:
     var
       notif = new(Doc)
+    notif.windows.init()
     notif.path = "Notifications"
     notif.docptr = plg.ctx.msg(plg.ctx, SCI_GETDOCPOINTER).toPtr
     discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, notif.docptr, windowID=0)
