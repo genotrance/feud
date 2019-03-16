@@ -338,7 +338,7 @@ proc close(plg: var Plugin) {.feudCallback.} =
 
     if docs.doclist[docid].windows.len == 0:
       discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
-      docs.doclist.del(docid)
+      docs.doclist.delete(docid)
       currDoc = plg.getDocId()
       if docid < currDoc:
         plg.setDocId(currDoc-1)
