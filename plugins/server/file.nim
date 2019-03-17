@@ -26,9 +26,13 @@ proc getCurrentWindow(plg: var Plugin): int =
     except:
       discard
 
-proc getDocId(plg: var Plugin): int =
+proc getDocId(plg: var Plugin, winid = -1): int =
   result = -1
-  if plg.ctx.handleCommand(plg.ctx, "getDocId"):
+  var
+    cmd = "getDocId"
+  if winid != -1:
+    cmd &= &" {winid}"
+  if plg.ctx.handleCommand(plg.ctx, cmd):
     try:
       result = plg.ctx.cmdParam[0].parseInt()
     except:
@@ -319,29 +323,30 @@ proc list(plg: var Plugin) {.feudCallback.} =
 proc close(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
-    param =
+    params =
       if plg.ctx.cmdParam.len != 0:
-        plg.ctx.cmdParam[0]
+        plg.getParam()
       else:
-        ""
+        @[""]
 
-  var
-    docid = plg.findDocFromParam(param)
-    currDoc = plg.getDocId()
-
-  if docid > 0 and currDoc > -1:
-    if docid == currDoc:
-      if docid == docs.doclist.len-1:
-        plg.switchDoc(docid-1)
-      else:
-        plg.switchDoc(docid+1)
-
-    if docs.doclist[docid].windows.len == 0:
-      discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
-      docs.doclist.delete(docid)
+  for param in params:
+    var
+      docid = plg.findDocFromParam(param)
       currDoc = plg.getDocId()
-      if docid < currDoc:
-        plg.setDocId(currDoc-1)
+
+    if docid > 0 and currDoc > -1:
+      if docid == currDoc:
+        if docid == docs.doclist.len-1:
+          plg.switchDoc(docid-1)
+        else:
+          plg.switchDoc(docid+1)
+
+      if docs.doclist[docid].windows.len == 0:
+        discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
+        docs.doclist.delete(docid)
+        currDoc = plg.getDocId()
+        if docid < currDoc:
+          plg.setDocId(currDoc-1)
 
 proc closeAll(plg: var Plugin) {.feudCallback.} =
   var
@@ -350,6 +355,33 @@ proc closeAll(plg: var Plugin) {.feudCallback.} =
   while docs.doclist.len != 1:
     plg.ctx.cmdParam = @[$(docs.doclist.len-1)]
     plg.close()
+
+proc unload(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+    params =
+      if plg.ctx.cmdParam.len != 0:
+        plg.getParam()
+      else:
+        @[]
+
+  for param in params:
+    var
+      winid: int
+    try:
+      winid = param.parseInt()
+    except:
+      winid = -1
+
+    if winid != -1:
+      let
+        docid = plg.getDocId(winid)
+
+      if docid < docs.doclist.len and docid > -1:
+        discard plg.ctx.msg(plg.ctx, SCI_ADDREFDOCUMENT, 0, docs.doclist[docid].docptr, windowID=winid)
+        docs.doclist[docid].windows.excl winid
+
+        discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, nil, windowID=winid)
 
 proc reload(plg: var Plugin) {.feudCallback.} =
   var
@@ -403,6 +435,9 @@ feudPluginLoad:
     notif.path = "Notifications"
     notif.docptr = plg.ctx.msg(plg.ctx, SCI_GETDOCPOINTER).toPtr
     discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, notif.docptr, windowID=0)
+    notif.windows.incl 0
 
     docs.doclist.add notif
     plg.setDocId(0)
+
+  discard plg.ctx.handleCommand(plg.ctx, "hook preCloseWindow unload")

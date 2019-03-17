@@ -312,6 +312,8 @@ proc closeWindow(plg: var Plugin) {.feudCallback.} =
     except:
       continue
 
+    discard plg.ctx.handleCommand(plg.ctx, strformat.`&`("runHook preCloseWindow {winid}"))
+
     if winid > 0:
       plg.deleteEditor(winid)
 
@@ -490,7 +492,14 @@ proc getDocId(plg: var Plugin) {.feudCallback.} =
     windows = plg.getWindows()
     winid = windows.current
 
-  plg.ctx.cmdParam = @[$windows.editors[winid].docid]
+  if plg.ctx.cmdParam.len != 0:
+    try:
+      winid = plg.ctx.cmdParam[0].parseInt()
+      plg.ctx.cmdParam = @[$windows.editors[winid].docid]
+    except:
+      plg.ctx.cmdParam = @["-1"]
+  else:
+    plg.ctx.cmdParam = @[$windows.editors[winid].docid]
 
 proc setDocId(plg: var Plugin) {.feudCallback.} =
   if plg.ctx.cmdParam.len != 0:

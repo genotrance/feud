@@ -134,6 +134,10 @@ hook postFileSwitch eMsg SCI_SETTABWIDTH 2
 This now runs these two `eMsg` commands whenever you switch buffers. The plugin would need to run the `runHook name`
 command internally.
 
+`runHook` can pass params to the hook to provide relevant context. For example, `runHook preCloseWindow winid`
+in the `window` plugin provides hooks the context of which window is about to close. This can then be leveraged
+in the unload callback as a param when setup as a hook: `hook preCloseWindow unload`.
+
 Hooks can be deleted with `delHook name`.
 
 __Remote Navigation__

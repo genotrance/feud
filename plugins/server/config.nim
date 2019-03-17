@@ -1,4 +1,4 @@
-import os, strutils, tables
+import os, strformat, strutils, tables
 
 import "../../src"/pluginapi
 
@@ -72,9 +72,14 @@ proc runHook(plg: var Plugin) {.feudCallback.} =
     config = plg.getConfig()
 
   for param in plg.getParam():
-    if config.hooks.hasKey(param):
-      for cmd in config.hooks[param]:
-        discard plg.ctx.handleCommand(plg.ctx, cmd)
+    let
+      (hook, opts) = param.splitCmd()
+    if config.hooks.hasKey(hook):
+      for cmd in config.hooks[hook]:
+        if opts.len != 0:
+          discard plg.ctx.handleCommand(plg.ctx, &"{cmd} {opts}")
+        else:
+          discard plg.ctx.handleCommand(plg.ctx, cmd)
 
 proc delHook(plg: var Plugin) {.feudCallback.} =
   var

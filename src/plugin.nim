@@ -118,6 +118,7 @@ proc notifyPlugins*(ctx: var Ctx) =
         plg.onNotify(plg)
         notified = true
       except:
+        plg.onNotify = nil
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
         ctx.unloadPlugin(plg.name)
 
