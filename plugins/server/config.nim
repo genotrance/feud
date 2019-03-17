@@ -102,6 +102,7 @@ proc script(plg: var Plugin) {.feudCallback.} =
             sline = line.strip()
           if sline.len != 0 and sline[0] notin ['#', ';']:
             discard plg.ctx.handleCommand(plg.ctx, sline)
+            plg.ctx.notify(plg.ctx, sline)
 
 feudPluginLoad:
   plg.config()

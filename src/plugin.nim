@@ -24,15 +24,17 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
 
   when defined(binary):
     while true:
-      withLock pmonitor[].lock:
-        if not pmonitor[].run:
-          break
-
       var
         dllPaths = toSeq(walkFiles(base/"*.dll"))
       dllPaths.add toSeq(walkFiles(base/path/"*.dll"))
 
       withLock pmonitor[].lock:
+        if not pmonitor[].run:
+          break
+
+        if not pmonitor[].ready and pmonitor[].processed.len == dllPaths.len:
+          pmonitor[].ready = true
+
         for dllPath in dllPaths:
           let
             name = dllPath.splitFile().name
@@ -43,13 +45,16 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
       sleep(2000)
   else:
     while true:
+      var
+        sourcePaths = toSeq(walkFiles(base/"*.nim"))
+      sourcePaths.add toSeq(walkFiles(base/path/"*.nim"))
+
       withLock pmonitor[].lock:
         if not pmonitor[].run:
           break
 
-      var
-        sourcePaths = toSeq(walkFiles(base/"*.nim"))
-      sourcePaths.add toSeq(walkFiles(base/path/"*.nim"))
+        if not pmonitor[].ready and pmonitor[].processed.len == sourcePaths.len:
+          pmonitor[].ready = true
 
       for sourcePath in sourcePaths:
         let
@@ -326,10 +331,19 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
             ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in '{cmd}()'")
           break
 
+proc handleCli(ctx: var Ctx) =
+  if ctx.cli.len != 0:
+    withLock ctx.pmonitor[].lock:
+      if ctx.pmonitor[].ready:
+        for cmd in ctx.cli:
+          discard ctx.handleCommand(ctx, cmd.strip())
+        ctx.cli = @[]
+
 proc syncPlugins*(ctx: var Ctx) =
   ctx.tick += 1
   if ctx.tick == 25:
     ctx.tick = 0
     ctx.reloadPlugins()
+    ctx.handleCli()
 
   ctx.tickPlugins()

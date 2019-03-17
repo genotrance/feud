@@ -80,3 +80,6 @@ task debug, "Debug build":
   flags = "--debugger:native --debuginfo"
   releaseTask()
 
+task dbin, "Debug binaries":
+  flags = "--debugger:native --debuginfo"
+  binTask()

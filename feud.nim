@@ -19,8 +19,8 @@ when defined(binary):
 
   setupDepFiles(files)
 
-proc main() =
- feudStart()
+proc main(cmds: seq[string]) =
+  feudStart(cmds)
 
 when isMainModule:
   dispatch(main)

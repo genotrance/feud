@@ -27,10 +27,12 @@ type
     load*: seq[string]
     init*: seq[string]
     processed*: HashSet[string]
+    ready*: bool
     window*: pointer
 
   Ctx* = ref object
     run*: bool
+    cli*: seq[string]
 
     msg*: proc(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int
     notify*: proc(ctx: var Ctx, msg: string)

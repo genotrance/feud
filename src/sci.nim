@@ -38,9 +38,11 @@ proc initCtx(): Ctx =
   result.run = true
   result.handleCommand = handleCommand
 
-proc feudStart*() =
+proc feudStart*(cmds: seq[string]) =
   var
     ctx = initCtx()
+
+  ctx.cli = cmds
 
   initScintilla()
   ctx.initPlugins("server")
