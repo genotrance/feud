@@ -22,6 +22,9 @@ proc handleCommand*(ctx: var Ctx, command: string): bool =
   case cmd:
     of "quit", "exit":
       ctx.run = false
+    of "notify":
+      if param.len != 0:
+        ctx.notify(ctx, param)
     else:
       if param.len != 0:
         ctx.cmdParam = @[param]

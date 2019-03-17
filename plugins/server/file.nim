@@ -303,12 +303,14 @@ proc save(plg: var Plugin) {.feudCallback.} =
 proc saveAs(plg: var Plugin) {.feudCallback.} =
   if plg.ctx.cmdParam.len != 0:
     var
+      name = plg.ctx.cmdParam[0].strip()
       docs = plg.getDocs()
       doc = docs.doclist[plg.getDocId()]
 
-    doc.path = plg.ctx.cmdParam[0].expandFilename()
+    if name.len != 0:
+      doc.path = name.expandFilename()
 
-    plg.save()
+      plg.save()
 
 proc list(plg: var Plugin) {.feudCallback.} =
   var

@@ -89,6 +89,20 @@ proc delHook(plg: var Plugin) {.feudCallback.} =
     if config.hooks.hasKey(param):
       config.hooks.del(param)
 
+proc script(plg: var Plugin) {.feudCallback.} =
+  for params in plg.getParam():
+    let
+      params = params.split(" ")
+    for param in params:
+      let
+        param = param.strip()
+      if param.len != 0 and param.fileExists():
+        for line in param.readFile().splitLines():
+          let
+            sline = line.strip()
+          if sline.len != 0 and sline[0] notin ['#', ';']:
+            discard plg.ctx.handleCommand(plg.ctx, sline)
+
 feudPluginLoad:
   plg.config()
 
