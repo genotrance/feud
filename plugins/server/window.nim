@@ -27,9 +27,10 @@ proc getWindows(plg: var Plugin): Windows {.inline.} =
   return getPlgData[Windows](plg)
 
 proc getPlugin(ctx: var Ctx): Plugin =
-  for pl in ctx.plugins.keys():
-    if pl == currentSourcePath.splitFile().name:
-      return ctx.plugins[pl]
+  let
+    pl = "window"
+  if ctx.plugins.hasKey(pl):
+    return ctx.plugins[pl]
 
 proc msg*(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int {.discardable.} =
   var

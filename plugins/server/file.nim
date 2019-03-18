@@ -1,4 +1,4 @@
-import os, segfaults, sequtils, sets, strformat, strutils, tables
+import os, sequtils, sets, strformat, strutils, tables
 
 import "../.."/src/pluginapi
 import "../.."/wrappers/fuzzy

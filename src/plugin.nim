@@ -8,6 +8,17 @@ import "."/[globals, utils]
 var
   gThread: Thread[ptr PluginMonitor]
 
+template tryCatch(body: untyped) {.dirty.} =
+  var
+    ret {.inject.} = true
+  when defined(release):
+    try:
+      body
+    except:
+      ret = false
+  else:
+    body
+
 proc dll(sourcePath: string): string =
   let
     (dir, name, _) = sourcePath.splitFile()
@@ -98,9 +109,9 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
       ctx.notify(ctx, &"Plugin '{dep}' depends on '{name}' and might crash")
 
     if not ctx.plugins[name].onUnload.isNil:
-      try:
+      tryCatch:
         ctx.plugins[name].onUnload(ctx.plugins[name])
-      except:
+      if not ret:
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{name}' crashed in 'feudPluginUnload()'")
 
     ctx.plugins[name].handle.unloadLib()
@@ -119,10 +130,10 @@ proc notifyPlugins*(ctx: var Ctx) =
     var
       plg = ctx.plugins[pl]
     if not plg.onNotify.isNil:
-      try:
+      tryCatch:
         plg.onNotify(plg)
         notified = true
-      except:
+      if not ret:
         plg.onNotify = nil
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
         ctx.unloadPlugin(plg.name)
@@ -161,9 +172,9 @@ proc initPlugin(plg: var Plugin) =
       plg.onDepends = plg.handle.symAddr("onDepends").toCallback()
 
       if not plg.onDepends.isNil:
-        try:
+        tryCatch:
           plg.onDepends(plg)
-        except:
+        if not ret:
           plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginDepends()'")
           plg.ctx.unloadPlugin(plg.name)
           return
@@ -181,9 +192,9 @@ proc initPlugin(plg: var Plugin) =
       plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' missing 'feudPluginLoad()'")
       plg.ctx.unloadPlugin(plg.name)
     else:
-      try:
+      tryCatch:
         plg.onLoad(plg)
-      except:
+      if not ret:
         plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
         plg.ctx.unloadPlugin(plg.name)
         return
@@ -229,9 +240,9 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       ctx.notify(ctx, &"Plugin '{plg.name}' failed to unload")
       return
 
-    try:
+    tryCatch:
       moveFile(dllPath, plg.path)
-    except:
+    if not ret:
       ctx.notify(ctx, &"Plugin '{plg.name}' dll copy failed")
       return
 
@@ -287,9 +298,9 @@ proc tickPlugins(ctx: var Ctx) =
     var
       plg = ctx.plugins[pl]
     if not plg.onTick.isNil:
-      try:
+      tryCatch:
         plg.onTick(plg)
-      except:
+      if not ret:
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
         ctx.unloadPlugin(plg.name)
 
@@ -325,9 +336,9 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
           plg = ctx.plugins[pl]
         if cmd in plg.cindex:
           result = true
-          try:
+          tryCatch:
             plg.callbacks[cmd](plg)
-          except:
+          if not ret:
             ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in '{cmd}()'")
           break
 

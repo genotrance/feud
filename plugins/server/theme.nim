@@ -40,7 +40,10 @@ const
 
 proc doSet(plg: var Plugin, cmds: string) =
   for cmd in cmds.splitLines():
-    discard plg.ctx.handleCommand(plg.ctx, "eMsg " & cmd.strip())
+    let
+      cmd = cmd.strip()
+    if cmd.len != 0:
+      discard plg.ctx.handleCommand(plg.ctx, "eMsg " & cmd)
 
 template doSet(msgID, wp, lp) =
   discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr)

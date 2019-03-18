@@ -12,6 +12,7 @@ let
   configFiles = @[
     getAppDir()/baseName
   ]
+
 proc getConfig(plg: var Plugin): Config =
   return getCtxData[Config](plg)
 
@@ -108,5 +109,5 @@ feudPluginLoad:
   plg.config()
 
 feudPluginTick:
-  if plg.ctx.tick mod 50 == 0:
+  if plg.ctx.tick == 0:
     plg.execConfig()

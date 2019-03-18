@@ -1,4 +1,4 @@
-import os, osproc, segfaults, strformat
+import os, osproc, strformat
 
 import "../../src"/pluginapi
 

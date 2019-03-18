@@ -39,3 +39,7 @@ proc splitCmd*(command: string): tuple[name, val: string] =
 
 proc getParam*(plg: var Plugin): seq[string] =
   deepCopy(result, plg.ctx.cmdParam)
+
+template decho*(str: untyped) =
+  when not defined(release):
+    echo str
