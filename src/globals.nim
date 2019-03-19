@@ -28,7 +28,6 @@ type
     init*: seq[string]
     processed*: HashSet[string]
     ready*: bool
-    window*: pointer
 
   Ctx* = ref object
     run*: bool

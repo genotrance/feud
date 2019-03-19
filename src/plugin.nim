@@ -19,11 +19,12 @@ template tryCatch(body: untyped) {.dirty.} =
   else:
     body
 
-proc dll(sourcePath: string): string =
-  let
-    (dir, name, _) = sourcePath.splitFile()
+when not defined(binary):
+  proc dll(sourcePath: string): string =
+    let
+      (dir, name, _) = sourcePath.splitFile()
 
-  result = dir / (DynlibFormat % name)
+    result = dir / (DynlibFormat % name)
 
 proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   var

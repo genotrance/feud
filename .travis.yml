@@ -14,6 +14,8 @@ if: tag IS blank
 
 install:
   - set -e
+  - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=boehmgc.dll" -o boehmgc.dll
+  - strip -s boehmgc.dll
   - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=choosenim.exe" -o choosenim.exe
   - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=libeay32.dll" -o libeay32.dll
   - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=ssleay32.dll" -o ssleay32.dll
@@ -28,7 +30,7 @@ script:
   - set -e
   - nimble develop -y
   - nimble binary
-  - 7z a feud-${TRAVIS_TAG}.zip feud.exe
+  - 7z a feud-${TRAVIS_TAG}.zip feud.exe boehmgc.dll plugins/*.dll plugins/server/*.dll plugins/server/*.xml
 
 before_deploy:
   - git config --local user.name "${GIT_TAG_USER_NAME}"

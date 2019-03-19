@@ -7,7 +7,7 @@ license     = "MIT"
 
 # Dependencies
 
-requires "nim >= 0.19.0", "nimterop >= 0.1.0", "winim >= 2.5.2", "cligen >= 0.9.17", "nimdeps >= 0.1.0"
+requires "nim >= 0.19.0", "nimterop >= 0.1.0", "winim >= 2.5.2", "cligen >= 0.9.17"
 
 import strutils
 
@@ -77,9 +77,9 @@ task binary, "Release binary":
   releaseTask()
 
 task debug, "Debug build":
-  flags = "--debugger:native --debuginfo"
+  flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert"
   releaseTask()
 
 task dbin, "Debug binaries":
-  flags = "--debugger:native --debuginfo"
+  flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert"
   binTask()
