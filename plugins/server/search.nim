@@ -51,11 +51,12 @@ proc search(plg: var Plugin) {.feudCallback.} =
   if search.needle.len != 0:
     let
       curpos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
-    discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
     if not search.reverse:
+      discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
       discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, curpos)
     else:
-      discard plg.ctx.msg(plg.ctx, SCI_SETTARGETEND, curpos)
+      discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, curpos)
+      discard plg.ctx.msg(plg.ctx, SCI_SETTARGETEND, 0)
 
     var
       flags = 0
@@ -81,6 +82,9 @@ proc search(plg: var Plugin) {.feudCallback.} =
 
     if pos != -1:
       discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, pos)
+      discard plg.ctx.handleCommand(plg.ctx, "runHook preSearchHighlight")
+      discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
+      discard plg.ctx.msg(plg.ctx, SCI_INDICATORFILLRANGE, pos, search.needle.len.toPtr)
   else:
     discard plg.ctx.handleCommand(plg.ctx, "togglePopup search")
 

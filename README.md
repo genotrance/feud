@@ -108,6 +108,26 @@ that allow customization of plugin and editor behavior.
 
 Reload configuration with command `config`.
 
+__Command Line and Scripting__
+
+Any plugin command that can be run from the GUI and configuration file can also be passed to feud via the
+command line: `feud "open file.nim"`.
+
+It is also possible to create a text file with multiple commands, similar to the configuration file and have it
+executed via a `script` command. This can help with automation of frequent tasks.
+
+```
+# cmds.ini
+open file.nim
+search text
+save
+quit
+```
+
+`script cmds.ini`
+
+The script interface will be used to automate testing of all feud capabilities.
+
 __Scintilla__
 
 The `eMsg` command can be used to send any message to the current editor window. This allows plugins and the

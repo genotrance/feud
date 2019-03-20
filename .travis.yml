@@ -29,7 +29,7 @@ script:
   - set -e
   - nimble develop -y
   - nimble binary
-  - 7z a feud-${TRAVIS_TAG}.zip feud.exe boehmgc.dll plugins/*.dll plugins/server/*.dll plugins/server/*.xml
+  - 7z a feud-${TRAVIS_TAG}.zip feud.exe feud.ini boehmgc.dll plugins/*.dll plugins/server/*.dll plugins/server/*.xml
 
 before_deploy:
   - git config --local user.name "${GIT_TAG_USER_NAME}"
