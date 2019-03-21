@@ -53,6 +53,7 @@ open 4                 - switch by buffer number
 open patfi             - fuzzy search to find buffer
 prev                   - switch to previous buffer
 next                   - switch to next buffer
+last                   - switch to last buffer
 ```
 
 Closing files:
@@ -81,12 +82,12 @@ closeWindow            - close current window
 
 Shell:
 ```
-! command              - Run command and print output to new doc
-!> command             - Run command and print output in active doc
+! command              - Run command and print output to new buffer
+!> command             - Run command and print output in active buffer
 | command              - Pipe selected or all text to command stdin and
-                         print output to new doc
+                         print output to new buffer
 |> command             - Pipe selected or all text to command stdin and
-                         print output to active doc
+                         print output to active buffer
 ```
 
 Hotkeys:
