@@ -99,6 +99,9 @@ Hotkeys:
 
 hotkey ^n newWindow    - create a new app-local hotkey
 hotkey ^n              - remove registered hotkey
+
+Special key notation:
+F1, F2 ... Tab, PgDn, PgUp, Home, End
 ```
 
 Hotkeys can map to a complete command with params to speed up common tasks.
