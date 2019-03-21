@@ -79,6 +79,16 @@ newWindow              - open a new editor window
 closeWindow            - close current window
 ```
 
+Shell:
+```
+! command              - Run command and print output to new doc
+!> command             - Run command and print output in active doc
+| command              - Pipe selected or all text to command stdin and
+                         print output to new doc
+|> command             - Pipe selected or all text to command stdin and
+                         print output to active doc
+```
+
 Hotkeys:
 ```
 ! = Alt

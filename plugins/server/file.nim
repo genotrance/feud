@@ -14,6 +14,7 @@ type
 
   Docs = ref object
     doclist: seq[Doc]
+    startupDir: string
 
 proc getDocs(plg: var Plugin): Docs =
   return getCtxData[Docs](plg)
@@ -137,7 +138,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
   if docs.doclist[docid].path notin ["Notifications", "New document"]:
     docs.doclist[docid].path.parentDir().setCurrentDir()
   else:
-    getAppDir().setCurrentDir()
+    docs.startupDir.setCurrentDir()
 
   discard plg.ctx.handleCommand(plg.ctx, "runHook postFileSwitch")
 
@@ -309,6 +310,7 @@ proc saveAs(plg: var Plugin) {.feudCallback.} =
 
     if name.len != 0:
       doc.path = name.expandFilename()
+      doc.path.parentDir().setCurrentDir()
 
       plg.save()
 
@@ -441,5 +443,7 @@ feudPluginLoad:
 
     docs.doclist.add notif
     plg.setDocId(0)
+
+    docs.startupDir = getCurrentDir()
 
   discard plg.ctx.handleCommand(plg.ctx, "hook preCloseWindow unload")
