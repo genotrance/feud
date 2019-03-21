@@ -165,8 +165,9 @@ proc loadFileContents(plg: var Plugin, path: string) =
     if bytesRead == MAX_BUFFER:
       discard plg.ctx.msg(plg.ctx, SCI_ADDTEXT, bytesRead, addr buffer[0])
     else:
-      buffer.setLen(bytesRead)
-      discard plg.ctx.msg(plg.ctx, SCI_ADDTEXT, bytesRead, addr buffer[0])
+      if bytesRead != 0:
+        buffer.setLen(bytesRead)
+        discard plg.ctx.msg(plg.ctx, SCI_ADDTEXT, bytesRead, addr buffer[0])
       break
   f.close()
 
