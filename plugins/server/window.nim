@@ -17,6 +17,7 @@ type
     editor: HWND
     popup: HWND
     docid: int
+    last: int
 
   Windows = ref object
     last: Time
@@ -505,6 +506,13 @@ proc execPopup(plg: var Plugin) =
         plg.addHistory()
         discard plg.ctx.handleCommand(plg.ctx, cmd)
 
+proc getLastId(plg: var Plugin) {.feudCallback.} =
+  var
+    windows = plg.getWindows()
+    winid = windows.current
+
+  plg.ctx.cmdParam = @[$windows.editors[winid].last]
+
 proc getDocId(plg: var Plugin) {.feudCallback.} =
   var
     windows = plg.getWindows()
@@ -528,6 +536,7 @@ proc setDocId(plg: var Plugin) {.feudCallback.} =
 
     try:
       docid = plg.ctx.cmdParam[0].parseInt()
+      windows.editors[winid].last = windows.editors[winid].docid
       windows.editors[winid].docid = docid
     except:
       discard

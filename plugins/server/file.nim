@@ -27,6 +27,14 @@ proc getCurrentWindow(plg: var Plugin): int =
     except:
       discard
 
+proc getLastId(plg: var Plugin): int =
+  result = -1
+  if plg.ctx.handleCommand(plg.ctx, "getLastId"):
+    try:
+      result = plg.ctx.cmdParam[0].parseInt()
+    except:
+      discard
+
 proc getDocId(plg: var Plugin, winid = -1): int =
   result = -1
   var
@@ -425,6 +433,17 @@ proc prev(plg: var Plugin) {.feudCallback.} =
       docid = docs.doclist.len-1
 
     plg.switchDoc(docid)
+
+proc last(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+
+  var
+    last = plg.getLastId()
+  if last > docs.doclist.len-1:
+    last = 0
+
+  plg.switchDoc(last)
 
 feudPluginDepends(["filetype", "theme", "window"])
 
