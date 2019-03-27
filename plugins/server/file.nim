@@ -223,11 +223,29 @@ proc open(plg: var Plugin) {.feudCallback.} =
     if bestmatch.len != 0:
       discard plg.ctx.handleCommand(plg.ctx, &"togglePopup open {bestmatch}")
 
-  for param in plg.getParam():
-    let
-      paths = param.split(" ")
-      recurse = "-r" in paths
-      fuzzy = "-f" in paths
+  var
+    sel = plg.getSelection()
+    params = plg.getParam()
+
+  if params.len == 0 and sel.len != 0:
+    params.add sel
+
+  for param in params:
+    var
+      paths = param.parseCmdLine()
+      recurse = false
+      fuzzy = false
+
+    if "-r" in paths:
+      recurse = true
+      paths.delete(paths.find("-r"))
+
+    if "-f" in paths:
+      fuzzy = true
+      paths.delete(paths.find("-f"))
+
+    if paths.len == 0 and sel.len != 0:
+      paths.add sel
 
     for path in paths:
       let
@@ -241,7 +259,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
           plg.open()
         else:
           plg.openRec(path)
-      elif path notin ["-r", "-f", ""]:
+      elif path.len != 0:
         let
           docid = plg.findDocFromParam(path)
         if docid > -1:

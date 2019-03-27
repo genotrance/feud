@@ -28,16 +28,19 @@ newDoc                 - open a new buffer
 open path\to\file.txt  - open specific file
 open ..\*.nim          - open all files that match wildcard
 open path\to\dir       - open all files in directory
+open                   - open selected text
 
 Recursive search
 open -r file.txt       - open file.txt in current dir tree
 open -r path\to\file.c - open file.c in path\to dir tree
 open -r *.nim          - open all nim files in current dir tree
 open -r path\to\*.c    - open all c files in path\to tree
+open -r                - open selected text recursively
 
 Fuzzy search
 open -f fl             - fuzzy find file in current dir tree
 open -f path\to\fl     - fuzzy find file in path\to dir tree
+open -f                - fuzzy find selected text
 
 reload                 - reload current buffer
 save                   - save current buffer
