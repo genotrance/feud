@@ -6,6 +6,7 @@ type
   Config = ref object
     commands: seq[string]
     hooks: TableRef[string, seq[string]]
+    settings: TableRef[string, string]
 
 let
   baseName = "feud.ini"
@@ -50,6 +51,7 @@ proc config(plg: var Plugin) {.feudCallback.} =
 
   config.commands = @["hook postWindowLoad config"]
   config.hooks = newTable[string, seq[string]]()
+  config.settings = newTable[string, string]()
 
   plg.loadConfigFile()
 
@@ -104,6 +106,31 @@ proc script(plg: var Plugin) {.feudCallback.} =
           if sline.len != 0 and sline[0] notin ['#', ';']:
             discard plg.ctx.handleCommand(plg.ctx, sline)
             plg.ctx.notify(plg.ctx, sline)
+
+proc get(plg: var Plugin) {.feudCallback.} =
+  if plg.ctx.cmdParam.len != 0:
+    var
+      config = plg.getConfig()
+      name = plg.ctx.cmdParam[0]
+
+    if name.len != 0 and config.settings.hasKey(name):
+      plg.ctx.cmdParam = @[config.settings[name]]
+    else:
+      plg.ctx.cmdParam = @[]
+
+proc set(plg: var Plugin) {.feudCallback.} =
+  for param in plg.getParam():
+    let
+      (sname, sval) = param.splitCmd()
+
+    if sname.len != 0:
+      var
+        config = plg.getConfig()
+      if sval.len != 0:
+        config.settings[sname] = sval
+      else:
+        if config.settings.hasKey(sname):
+          config.settings.del(sname)
 
 feudPluginLoad:
   plg.config()
