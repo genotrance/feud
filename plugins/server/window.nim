@@ -184,7 +184,8 @@ proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESU
         plg = cast[LONG_PTR](pCreate.lpCreateParams)
       hwnd.SetWindowLongPtr(GWLP_USERDATA, plg)
     of WM_CLOSE:
-      hwnd.DestroyWindow()
+      plg.ctx.cmdParam = @[]
+      plg.closeWindow()
     of WM_DESTROY:
       PostQuitMessage(0)
     of WM_NOTIFY:
