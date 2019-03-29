@@ -3,7 +3,7 @@
 import os, sets, strformat, strutils, tables, times
 
 when defined(Windows):
-  import winim/inc/[windef, winbase, winuser], winim/winstr
+  import winim/inc/[commctrl, windef, winbase, winuser], winim/winstr
 
 import "../.."/src/pluginapi
 
@@ -16,6 +16,7 @@ const VKTable = {
 type
   Editor = ref object
     frame: HWND
+    status: HWND
     editor: HWND
     popup: HWND
     docid: int
@@ -155,19 +156,23 @@ proc setCurrentWindow(plg: var Plugin, hwnd: HWND) =
 
 proc resizeFrame(hwnd: HWND) =
   let
+    status = hwnd.GetDlgItem(hwnd.int32)
     editor = hwnd.GetWindow(GW_CHILD)
 
   if editor != 0:
     var
       rect: Rect
-    if hwnd.GetClientRect(addr rect) == 1:
+      srect: Rect
+
+    status.SendMessage(WM_SIZE, 0, 0)
+    if hwnd.GetClientRect(addr rect) == 1 and status.GetWindowRect(addr srect) == 1:
       discard SetWindowPos(
         editor,
         HWND_TOP,
         rect.left,
         rect.top,
         rect.right-rect.left,
-        rect.bottom-rect.top,
+        rect.bottom-rect.top-(srect.bottom-srect.top),
         SWP_SHOWWINDOW)
 
 proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
@@ -233,6 +238,12 @@ proc createFrame(plg: var Plugin): HWND =
 
   doException result.UpdateWindow() != 0, "UpdateWindow() failed with " & $GetLastError()
 
+proc createStatus(parent: HWND): HWND =
+  result = CreateWindowEx(
+    0, STATUSCLASSNAME, nil, WS_CHILD or WS_VISIBLE or SBARS_SIZEGRIP, 0, 0, 0, 0,
+    parent, parent, GetModuleHandleW(nil), nil)
+  result.SendMessage(WM_SIZE, 0, 0)
+
 proc createPopup(parent: HWND): HWND =
   result = CreateWindow("Scintilla", "", WS_CHILD, 10, 10, 800, 30, parent, 0, GetModuleHandleW(nil), nil)
   doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
@@ -275,6 +286,7 @@ proc createEditor(plg: var Plugin): Editor =
   result.frame = plg.createFrame()
   result.editor = createWindow(result.frame)
   result.popup = createPopup(result.editor)
+  result.status = createStatus(result.frame)
   result.frame.resizeFrame()
   windows.editors.add result
   windows.current = windows.editors.len-1
@@ -643,6 +655,8 @@ feudPluginNotify:
 
   for param in plg.getParam():
     msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & "\n").cstring, windowid=0)
+    if windows.editors.len != 0 and windows.current < windows.editors.len:
+      windows.editors[windows.current].status.SetWindowText(param.cstring)
 
 feudPluginUnload:
   var

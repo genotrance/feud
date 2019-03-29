@@ -347,7 +347,7 @@ proc list(plg: var Plugin) {.feudCallback.} =
     docs = plg.getDocs()
 
   for i in 0 .. docs.doclist.len-1:
-    lout &= &"{i}: {docs.doclist[i].path}\n"
+    lout &= &"{i}: {docs.doclist[i].path.extractFilename()}\n"
 
   plg.ctx.notify(plg.ctx, lout[0..^2])
 
