@@ -53,11 +53,7 @@ proc setPopupTheme(plg: var Plugin) {.feudCallback.} =
     caretColor = plg.get("caretColor").toBgr()
 
   # Horizontal scroll
-  doSet(SCI_SETSCROLLWIDTH, 1, 0, popup=true)
-  doSet(SCI_SETSCROLLWIDTHTRACKING, 1, 0, popup=true)
-
-  # No margins
-  doSet(SCI_SETMARGINWIDTHN, 1, 0, popup=true)
+  doSet(SCI_SETHSCROLLBAR, 0, 0, popup=true)
 
   # Font
   if fontName.len != 0:

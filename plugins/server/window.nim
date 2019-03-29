@@ -1,3 +1,5 @@
+{.experimental: "codeReordering".}
+
 import os, sets, strformat, strutils, tables, times
 
 when defined(Windows):
@@ -196,6 +198,7 @@ proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESU
           discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowSelection")
     of WM_SIZE:
       hwnd.resizeFrame()
+      plg.positionPopup(hwnd.GetWindow(GW_CHILD).GetWindow(GW_CHILD))
     else:
       return DefWindowProc(hwnd, msg, wParam, lParam)
 
@@ -230,7 +233,7 @@ proc createFrame(plg: var Plugin): HWND =
   doException result.UpdateWindow() != 0, "UpdateWindow() failed with " & $GetLastError()
 
 proc createPopup(parent: HWND): HWND =
-  result = CreateWindow("Scintilla", "", WS_BORDER, 10, 10, 800, 30, parent, 0, GetModuleHandleW(nil), nil)
+  result = CreateWindow("Scintilla", "", WS_CHILD, 10, 10, 800, 30, parent, 0, GetModuleHandleW(nil), nil)
   doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
 
   var
@@ -270,7 +273,7 @@ proc createEditor(plg: var Plugin): Editor =
 
   result.frame = plg.createFrame()
   result.editor = createWindow(result.frame)
-  result.popup = createPopup(result.frame)
+  result.popup = createPopup(result.editor)
   result.frame.resizeFrame()
   windows.editors.add result
   windows.current = windows.editors.len-1
@@ -457,19 +460,24 @@ proc listHistory(plg: var Plugin) {.feudCallback.} =
 
 # Popup
 
-proc positionPopup(hwnd: HWND) =
+proc positionPopup(plg: var Plugin, hwnd: HWND) =
   var
-    fghwnd = GetForegroundWindow()
+    ehwnd = hwnd.GetParent
     rect: RECT
+    pix = msg(plg.ctx, SCI_TEXTHEIGHT, popup=true).int32
 
-  if fghwnd.GetWindowRect(addr rect) == 1:
+  if ehwnd.GetClientRect(addr rect) == 1:
+    let
+      width = ((rect.right-rect.left).float / 2).int32
+      offset = ((rect.right-width) / 2).int32
+
     discard hwnd.SetWindowPos(
-      fghwnd,
-      rect.left+25,
-      rect.bottom-rect.top-40,
-      rect.right-rect.left-50,
-      30,
-      SWP_SHOWWINDOW)
+      HWND_TOP,
+      offset,
+      ((rect.bottom-rect.top) / 2).int32,
+      width,
+      pix,
+      if hwnd.IsWindowVisible == 1: SWP_SHOWWINDOW else: 0)
 
 proc togglePopup(plg: var Plugin) {.feudCallback.} =
   var
@@ -481,12 +489,17 @@ proc togglePopup(plg: var Plugin) {.feudCallback.} =
     hwnd.ShowWindow(SW_HIDE)
     msg(plg.ctx, SCI_GRABFOCUS)
   else:
-    hwnd.positionPopup()
+    plg.positionPopup(hwnd)
     if plg.ctx.cmdParam.len != 0:
       let
         param = plg.ctx.cmdParam[0]
       msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & " ").cstring, popup=true)
       msg(plg.ctx, SCI_GOTOPOS, param.len+1, popup=true)
+
+    msg(plg.ctx, SCI_MARKERDEFINE, 1, SC_MARK_ARROWS.toPtr, popup=true)
+    msg(plg.ctx, SCI_MARKERADD, 0, 1.toPtr, popup=true)
+    msg(plg.ctx, SCI_GRABFOCUS, popup=true)
+
     hwnd.ShowWindow(SW_SHOW)
 
 proc execPopup(plg: var Plugin) =

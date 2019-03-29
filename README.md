@@ -157,9 +157,17 @@ eMsg SCI_SETTABWIDTH 2 - set Scintilla to set tab width to 2
 
 The full documentation for Scintilla is available [here](https://www.scintilla.org/ScintillaDoc.html).
 
-__Hooks__
+__Settings and Hooks__
 
-Plugin authors can use hooks to allow users to run custom commands at specific points in their code. For example,
+Plugin authors can make their plugins customizable by using the settings functionality. The `config` plugin provides
+a `get` command which can be called using `handleCommand()` in the plugin code. The `set` command will typically be
+used in `feud.ini` or similar configuration files.
+
+```
+set theme:fgColor 0xDDDDDD
+```
+
+Plugin authors can also use hooks to allow users to run custom commands at specific points in their code. For example,
 the `file` plugin enables two hooks: `postFileLoad` and `postFileSwitch`. This allows a user to run custom commands
 at that point. For example:
 
