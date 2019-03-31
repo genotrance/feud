@@ -118,6 +118,7 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
     else:
       ret = msg(plg.ctx, s)
 
+    plg.ctx.cmdParam = @[$ret]
     if verbose:
       plg.ctx.notify(plg.ctx, "Returned: " & $ret)
 
@@ -154,7 +155,7 @@ proc setCurrentWindow(plg: var Plugin, hwnd: HWND) =
   if winid != -1:
     windows.current = winid
 
-proc resizeFrame(hwnd: HWND) =
+proc resizeFrame(plg: var Plugin, hwnd: HWND) =
   let
     status = hwnd.GetDlgItem(hwnd.int32)
     editor = hwnd.GetWindow(GW_CHILD)
@@ -164,8 +165,11 @@ proc resizeFrame(hwnd: HWND) =
       rect: Rect
       srect: Rect
 
-    status.SendMessage(WM_SIZE, 0, 0)
-    if hwnd.GetClientRect(addr rect) == 1 and status.GetWindowRect(addr srect) == 1:
+    if status != nil:
+      status.SendMessage(WM_SIZE, 0, 0)
+      status.GetWindowRect(addr srect)
+
+    if hwnd.GetClientRect(addr rect) == 1:
       discard SetWindowPos(
         editor,
         HWND_TOP,
@@ -174,6 +178,9 @@ proc resizeFrame(hwnd: HWND) =
         rect.right-rect.left,
         rect.bottom-rect.top-(srect.bottom-srect.top),
         SWP_SHOWWINDOW)
+
+      if status != nil:
+        plg.setupStatus(status)
 
 proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
   var
@@ -203,7 +210,7 @@ proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESU
         elif (notify[].updated and SC_UPDATE_SELECTION) != 0:
           discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowSelection")
     of WM_SIZE:
-      hwnd.resizeFrame()
+      plg.resizeFrame(hwnd)
       plg.positionPopup(hwnd.GetWindow(GW_CHILD).GetWindow(GW_CHILD))
     else:
       return DefWindowProc(hwnd, msg, wParam, lParam)
@@ -243,6 +250,56 @@ proc createStatus(parent: HWND): HWND =
     0, STATUSCLASSNAME, nil, WS_CHILD or WS_VISIBLE or SBARS_SIZEGRIP, 0, 0, 0, 0,
     parent, parent, GetModuleHandleW(nil), nil)
   result.SendMessage(WM_SIZE, 0, 0)
+
+proc setupStatus(plg: var Plugin, hwnd: HWND) =
+  var
+    srect: Rect
+    splits = plg.getCbResult("get window:statusWidths").split(" ")
+    intsplit: array[16, int32]
+    count: int32
+    total: int32
+
+  if splits.len != 0 and hwnd.GetWindowRect(addr srect) == 1:
+    for i in 0 .. 15:
+      if i > splits.len-1:
+        break
+      try:
+        total += splits[i].strip().parseInt().int32
+        if total > 100:
+          break
+        intsplit[i] = (total * (srect.right - srect.left) / 100).int32
+        count = (i + 1).int32
+      except:
+        return
+
+    SendMessage(hwnd, SB_SETPARTS, cast[WPARAM](count), cast[LPARAM](addr intsplit))
+
+proc setStatusBarHelper(plg: var Plugin, exec = false) =
+  var
+    windows = plg.getWindows()
+    status = windows.editors[windows.current].status
+
+  for param in plg.getParam():
+    var
+      (idstr, cmd) = param.splitCmd()
+      id: int32
+
+    if idstr.len != 0:
+      try:
+        id = idstr.parseInt().int32
+      except:
+        continue
+
+      if exec:
+        cmd = plg.getCbResult(cmd)
+
+      SendMessage(status, SB_SETTEXTA, cast[WPARAM](id), cast[LPARAM](cmd.cstring))
+
+proc setStatusBar(plg: var Plugin) {.feudCallback.} =
+  plg.setStatusBarHelper()
+
+proc setStatusBarCmd(plg: var Plugin) {.feudCallback.} =
+  plg.setStatusBarHelper(exec = true)
 
 proc createPopup(parent: HWND): HWND =
   result = CreateWindow("Scintilla", "", WS_CHILD, 10, 10, 800, 30, parent, 0, GetModuleHandleW(nil), nil)
@@ -286,8 +343,9 @@ proc createEditor(plg: var Plugin): Editor =
   result.frame = plg.createFrame()
   result.editor = createWindow(result.frame)
   result.popup = createPopup(result.editor)
-  result.status = createStatus(result.frame)
-  result.frame.resizeFrame()
+  if plg.getCbResult("get window:statusBar") == "true":
+    result.status = createStatus(result.frame)
+    plg.setupStatus(result.status)
   windows.editors.add result
   windows.current = windows.editors.len-1
 
@@ -656,7 +714,7 @@ feudPluginNotify:
   for param in plg.getParam():
     msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & "\n").cstring, windowid=0)
     if windows.editors.len != 0 and windows.current < windows.editors.len:
-      windows.editors[windows.current].status.SetWindowText(param.cstring)
+      discard plg.ctx.handleCommand(plg.ctx, strformat.`&`("runHook postWindowNotify {param.strip()}"))
 
 feudPluginUnload:
   var

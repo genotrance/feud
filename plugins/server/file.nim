@@ -19,33 +19,12 @@ type
 proc getDocs(plg: var Plugin): Docs =
   return getCtxData[Docs](plg)
 
-proc getCurrentWindow(plg: var Plugin): int =
-  result = -1
-  if plg.ctx.handleCommand(plg.ctx, "getCurrentWindow"):
-    try:
-      result = plg.ctx.cmdParam[0].parseInt()
-    except:
-      discard
-
-proc getLastId(plg: var Plugin): int =
-  result = -1
-  if plg.ctx.handleCommand(plg.ctx, "getLastId"):
-    try:
-      result = plg.ctx.cmdParam[0].parseInt()
-    except:
-      discard
-
 proc getDocId(plg: var Plugin, winid = -1): int =
-  result = -1
   var
     cmd = "getDocId"
   if winid != -1:
     cmd &= &" {winid}"
-  if plg.ctx.handleCommand(plg.ctx, cmd):
-    try:
-      result = plg.ctx.cmdParam[0].parseInt()
-    except:
-      discard
+  result = plg.getCbIntResult(cmd, -1)
 
 proc setDocId(plg: var Plugin, docid: int) =
   discard plg.ctx.handleCommand(plg.ctx, &"setDocId {docid}")
@@ -121,7 +100,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
   var
     docs = plg.getDocs()
     currDoc = plg.getDocId()
-    currWindow = plg.getCurrentWindow()
+    currWindow = plg.getCbIntResult("getCurrentWindow", -1)
 
   if docid < 0 or docid > docs.doclist.len-1 or currWindow < 0 or currDoc < 0 or docid == currDoc:
     return
@@ -139,9 +118,10 @@ proc switchDoc(plg: var Plugin, docid: int) =
 
   discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docs.doclist[docid].path}")
 
-  discard plg.ctx.handleCommand(plg.ctx, "setLexer " & docs.doclist[docid].path)
-  if plg.ctx.cmdParam.len != 0:
-    discard plg.ctx.handleCommand(plg.ctx, "setTheme " & plg.ctx.cmdParam[0])
+  let
+    lexer = plg.getCbResult(&"setLexer {docs.doclist[docid].path}")
+  if lexer.len != 0:
+    discard plg.ctx.handleCommand(plg.ctx, &"setTheme {lexer}")
 
   if docs.doclist[docid].path notin ["Notifications", "New document"]:
     docs.doclist[docid].path.parentDir().setCurrentDir()
@@ -458,7 +438,7 @@ proc last(plg: var Plugin) {.feudCallback.} =
     docs = plg.getDocs()
 
   var
-    last = plg.getLastId()
+    last = plg.getCbIntResult("getLastId", -1)
   if last > docs.doclist.len-1:
     last = 0
 

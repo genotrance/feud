@@ -125,3 +125,17 @@ proc getSelection*(plg: var Plugin): string =
 
     discard plg.ctx.msg(plg.ctx, SCI_GETSELTEXT, 0, data)
     result = ($cast[cstring](data)).strip()
+
+proc getCbResult*(plg: var Plugin, command: string): string =
+  if plg.ctx.handleCommand(plg.ctx, command):
+    if plg.ctx.cmdParam.len != 0 and plg.ctx.cmdParam[0].len != 0:
+      return plg.ctx.cmdParam[0]
+
+proc getCbIntResult*(plg: var Plugin, command: string, default = 0): int =
+  let
+    str = plg.getCbResult(command)
+
+  try:
+    result = parseInt(str)
+  except:
+    result = default

@@ -15,20 +15,6 @@ proc toBgr(rgb: string): int =
 const
   gBold = @["COMMENTDOC", "COMMENTLINEDOC", "OPERATOR"]
 
-proc get(plg: var Plugin, name: string): string =
-  if plg.ctx.handleCommand(plg.ctx, &"get theme:{name}"):
-    if plg.ctx.cmdParam.len != 0 and plg.ctx.cmdParam[0].len != 0:
-      return plg.ctx.cmdParam[0]
-
-proc getInt(plg: var Plugin, name: string): int =
-  let
-    str = plg.get(name)
-
-  try:
-    result = parseInt(str)
-  except:
-    discard
-
 proc doSet(plg: var Plugin, cmds: string) =
   for cmd in cmds.splitLines():
     let
@@ -44,13 +30,13 @@ template doSet(msgID, wp, lp, popup) =
 
 proc setPopupTheme(plg: var Plugin) {.feudCallback.} =
   let
-    fontName = plg.get("fontName")
-    fontSize = plg.getInt("fontSize")
+    fontName = plg.getCbResult("get theme:fontName")
+    fontSize = plg.getCbIntResult("get theme:fontSize")
 
-    fgColor = plg.get("fgColor").toBgr()
-    bgColor = plg.get("bgColor").toBgr()
-    indentColor = plg.get("indentColor").toBgr()
-    caretColor = plg.get("caretColor").toBgr()
+    fgColor = plg.getCbResult("get theme:fgColor").toBgr()
+    bgColor = plg.getCbResult("get theme:bgColor").toBgr()
+    indentColor = plg.getCbResult("get theme:indentColor").toBgr()
+    caretColor = plg.getCbResult("get theme:caretColor").toBgr()
 
   # Horizontal scroll
   doSet(SCI_SETHSCROLLBAR, 0, 0, popup=true)
@@ -82,16 +68,16 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
       else:
         ""
 
-    fontName = plg.get("fontName")
-    fontSize = plg.getInt("fontSize")
+    fontName = plg.getCbResult("get theme:fontName")
+    fontSize = plg.getCbIntResult("get theme:fontSize")
 
-    fgColor = plg.get("fgColor").toBgr()
-    bgColor = plg.get("bgColor").toBgr()
-    indentColor = plg.get("indentColor").toBgr()
-    caretColor = plg.get("caretColor").toBgr()
+    fgColor = plg.getCbResult("get theme:fgColor").toBgr()
+    bgColor = plg.getCbResult("get theme:bgColor").toBgr()
+    indentColor = plg.getCbResult("get theme:indentColor").toBgr()
+    caretColor = plg.getCbResult("get theme:caretColor").toBgr()
 
-    lineNumbers = plg.get("lineNumbers")
-    lineNumberWidth = plg.getInt("lineNumberWidth")
+    lineNumbers = plg.getCbResult("get theme:lineNumbers")
+    lineNumberWidth = plg.getCbIntResult("get theme:lineNumberWidth")
 
   # Font
   if fontName.len != 0:
@@ -134,30 +120,30 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
 
   var
     theme = {
-      "DEFAULT": plg.get("defColor"),
+      "DEFAULT": plg.getCbResult("get theme:defColor"),
 
-      "WORD": plg.get("wordColor"),
+      "WORD": plg.getCbResult("get theme:wordColor"),
 
-      "COMMENT": plg.get("commentColor"),
-      "COMMENTLINE": plg.get("commentColor"),
+      "COMMENT": plg.getCbResult("get theme:commentColor"),
+      "COMMENTLINE": plg.getCbResult("get theme:commentColor"),
 
-      "COMMENTDOC": plg.get("docColor"),
-      "COMMENTLINEDOC": plg.get("docColor"),
+      "COMMENTDOC": plg.getCbResult("get theme:docColor"),
+      "COMMENTLINEDOC": plg.getCbResult("get theme:docColor"),
 
-      "NUMBER": plg.get("numberColor"),
-      "CHARACTER": plg.get("charColor"),
+      "NUMBER": plg.getCbResult("get theme:numberColor"),
+      "CHARACTER": plg.getCbResult("get theme:charColor"),
 
-      "STRING": plg.get("stringColor"),
-      "TRIPLE": plg.get("stringColor"),
-      "TRIPLEDOUBLE": plg.get("stringColor"),
+      "STRING": plg.getCbResult("get theme:stringColor"),
+      "TRIPLE": plg.getCbResult("get theme:stringColor"),
+      "TRIPLEDOUBLE": plg.getCbResult("get theme:stringColor"),
 
-      "STRINGEOL": plg.get("errorColor"),
-      "NUMERROR": plg.get("errorColor"),
+      "STRINGEOL": plg.getCbResult("get theme:errorColor"),
+      "NUMERROR": plg.getCbResult("get theme:errorColor"),
 
-      "OPERATOR": plg.get("opColor"),
-      "IDENTIFIER": plg.get("idColor"),
+      "OPERATOR": plg.getCbResult("get theme:opColor"),
+      "IDENTIFIER": plg.getCbResult("get theme:idColor"),
 
-      "FUNCNAME": plg.get("idColor")
+      "FUNCNAME": plg.getCbResult("get theme:idColor")
     }.toTable()
 
   if lexer.len != 0:
