@@ -455,8 +455,7 @@ feudPluginLoad:
       notif = new(Doc)
     notif.windows.init()
     notif.path = "Notifications"
-    notif.docptr = plg.ctx.msg(plg.ctx, SCI_GETDOCPOINTER).toPtr
-    discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, notif.docptr, windowID=0)
+    notif.docptr = plg.ctx.msg(plg.ctx, SCI_GETDOCPOINTER, windowID=0).toPtr
     notif.windows.incl 0
 
     docs.doclist.add notif

@@ -7,11 +7,11 @@ var
 
 gCh.open()
 
-proc handleCommand(ctx: var Ctx, command: string) =
+proc handleCommand(ctx: var Ctx, command: string): bool =
   let
     (cmd, val) = command.splitCmd()
 
-  ctx.cmdParam = if val.len == 2: @[val] else: @[]
+  ctx.cmdParam = if val.len != 0: @[val] else: @[]
   if not ctx.handlePluginCommand(cmd):
     ctx.cmdParam = @[command]
     discard ctx.handlePluginCommand("sendServer")
@@ -24,7 +24,7 @@ proc messageLoop(ctx: var Ctx) =
     let (ready, command) = gCh.tryRecv()
 
     if ready:
-      handleCommand(ctx, command)
+      discard handleCommand(ctx, command)
 
       if command == "exit":
         run = false
@@ -72,6 +72,9 @@ proc main(
     thread: Thread[void]
 
   ctx.cmdParam = @[client, server]
+
+  ctx.handleCommand = handleCommand
+
   ctx.initPlugins("client")
 
   createThread(thread, initCmd)

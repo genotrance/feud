@@ -49,7 +49,7 @@ proc config(plg: var Plugin) {.feudCallback.} =
   var
     config = plg.getConfig()
 
-  config.commands = @["hook postWindowLoad config"]
+  config.commands = @[]
   config.hooks = newTable[string, seq[string]]()
   config.settings = newTable[string, string]()
 

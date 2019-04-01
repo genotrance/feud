@@ -30,6 +30,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   var
     path = ""
     base = getAppDir()/"plugins"
+    delay = 200
 
   withLock pmonitor[].lock:
     path = pmonitor[].path
@@ -46,6 +47,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
 
         if not pmonitor[].ready and pmonitor[].processed.len == dllPaths.len:
           pmonitor[].ready = true
+          delay = 2000
 
         for dllPath in dllPaths:
           let
@@ -54,7 +56,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             pmonitor[].processed.incl name
             pmonitor[].load.add &"{dllPath}"
 
-      sleep(2000)
+      sleep(delay)
   else:
     while true:
       var
@@ -67,6 +69,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
 
         if not pmonitor[].ready and pmonitor[].processed.len == sourcePaths.len:
           pmonitor[].ready = true
+          delay = 2000
 
       for sourcePath in sourcePaths:
         let
@@ -81,7 +84,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
               when defined(release):
                 "-d:release"
               else:
-                "--debugger:native --debuginfo"
+                "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert"
             output = ""
             exitCode = 0
 
@@ -102,7 +105,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
               pmonitor[].processed.incl name
               pmonitor[].load.add &"{dllPath}"
 
-      sleep(2000)
+      sleep(delay)
 
 proc unloadPlugin(ctx: var Ctx, name: string) =
   if ctx.plugins.hasKey(name):
@@ -345,17 +348,23 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
 
 proc handleCli(ctx: var Ctx) =
   if ctx.cli.len != 0:
+    for cmd in ctx.cli:
+      discard ctx.handleCommand(ctx, cmd.strip())
+    ctx.cli = @[]
+
+proc handleReady(ctx: var Ctx) =
+  if not ctx.ready:
     withLock ctx.pmonitor[].lock:
       if ctx.pmonitor[].ready:
-        for cmd in ctx.cli:
-          discard ctx.handleCommand(ctx, cmd.strip())
-        ctx.cli = @[]
+        ctx.ready = true
+        ctx.handleCli()
+        discard ctx.handleCommand(ctx, "runHook onReady")
 
 proc syncPlugins*(ctx: var Ctx) =
   ctx.tick += 1
-  if ctx.tick == 25:
+  if not ctx.ready or ctx.tick == 25:
     ctx.tick = 0
     ctx.reloadPlugins()
-    ctx.handleCli()
+    ctx.handleReady()
 
   ctx.tickPlugins()

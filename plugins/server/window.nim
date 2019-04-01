@@ -639,11 +639,11 @@ feudPluginLoad:
   plg.ctx.msg = msg
 
   discard plg.createEditor()
-  plg.newWindow()
 
   windows.hotkeys = newTable[int, tuple[hotkey, callback: string]]()
   windows.last = getTime()
 
+  discard plg.ctx.handleCommand(plg.ctx, "hook onReady newWindow")
   discard plg.ctx.handleCommand(plg.ctx, "runHook postWindowLoad")
 
 feudPluginTick:
@@ -700,7 +700,7 @@ feudPluginTick:
     for i in countdown(windows.editors.len-1, 0):
       if IsWindow(windows.editors[i].frame) == 0:
         plg.deleteEditor(i)
-    if windows.editors.len == 1:
+    if plg.ctx.ready == true and windows.editors.len == 1:
       plg.deleteEditor(0)
       discard plg.ctx.handleCommand(plg.ctx, "quit")
 

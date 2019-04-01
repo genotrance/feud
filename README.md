@@ -177,7 +177,8 @@ hook postFileSwitch eMsg SCI_SETTABWIDTH 2
 ```
 
 This now runs these two `eMsg` commands whenever you switch buffers. The plugin would need to run the `runHook name`
-command internally.
+command internally. Feud also provides a global `onReady` hook that can be used by plugins to run tasks once everything
+is loaded and ready to go.
 
 `runHook` can pass params to the hook to provide relevant context. For example, `runHook preCloseWindow winid`
 in the `window` plugin provides hooks the context of which window is about to close. This can then be leveraged
@@ -194,7 +195,8 @@ Commands: `initServer restartServer stopServer sendServer`
 
 __Feedback__
 
-Feud is a work in progress and any feedback or suggestions are welcome. It is hosted on [GitHub](https://github.com/genotrance/feud) with an MIT license so issues, forks and PRs are most appreciated.
+Feud is a work in progress and any feedback or suggestions are welcome. It is hosted on [GitHub](https://github.com/genotrance/feud)
+with an MIT license so issues, forks and PRs are most appreciated.
 
 __Credits__
 

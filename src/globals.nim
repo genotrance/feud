@@ -31,6 +31,7 @@ type
 
   Ctx* = ref object
     run*: bool
+    ready*: bool
     cli*: seq[string]
 
     msg*: proc(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int
