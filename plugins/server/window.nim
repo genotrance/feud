@@ -712,7 +712,7 @@ feudPluginNotify:
     windows = plg.getWindows()
 
   for param in plg.getParam():
-    msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & "\n").cstring, windowid=0)
+    msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & "\n").cstring, windowID=0)
     if windows.editors.len != 0 and windows.current < windows.editors.len:
       discard plg.ctx.handleCommand(plg.ctx, strformat.`&`("runHook postWindowNotify {param.strip()}"))
 

@@ -43,8 +43,6 @@ proc findDocFromString(plg: var Plugin, srch: string): int =
     if srch == str:
       result = i
       break
-    elif fuzzy_match(srch, str, score):
-      scores.add score
     else:
       scores.add 0
 
