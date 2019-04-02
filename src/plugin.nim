@@ -357,8 +357,8 @@ proc handleReady(ctx: var Ctx) =
     withLock ctx.pmonitor[].lock:
       if ctx.pmonitor[].ready:
         ctx.ready = true
-        ctx.handleCli()
         discard ctx.handleCommand(ctx, "runHook onReady")
+        ctx.handleCli()
 
 proc syncPlugins*(ctx: var Ctx) =
   ctx.tick += 1

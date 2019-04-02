@@ -643,7 +643,10 @@ feudPluginLoad:
   windows.hotkeys = newTable[int, tuple[hotkey, callback: string]]()
   windows.last = getTime()
 
-  discard plg.ctx.handleCommand(plg.ctx, "hook onReady newWindow")
+  if not plg.ctx.ready:
+    discard plg.ctx.handleCommand(plg.ctx, "hook onReady newWindow")
+  else:
+    plg.newWindow()
   discard plg.ctx.handleCommand(plg.ctx, "runHook postWindowLoad")
 
 feudPluginTick:
