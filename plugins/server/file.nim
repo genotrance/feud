@@ -204,11 +204,19 @@ proc open(plg: var Plugin) {.feudCallback.} =
   var
     sel = plg.getSelection()
     params = plg.getParam()
+    selected = false
 
   if params.len == 0 and sel.len != 0:
     params.add sel
+    selected = true
+
+  if params.len == 0:
+    discard plg.ctx.handleCommand(plg.ctx, "togglePopup open")
 
   for param in params:
+    defer:
+      selected = false
+
     var
       paths = param.parseCmdLine()
       recurse = false
@@ -224,6 +232,12 @@ proc open(plg: var Plugin) {.feudCallback.} =
 
     if paths.len == 0 and sel.len != 0:
       paths.add sel
+      selected = true
+
+    let
+      togOpen = "togglePopup open" & (if recurse: " -r" elif fuzzy: " -f" else: "")
+    if paths.len == 0:
+      discard plg.ctx.handleCommand(plg.ctx, togOpen)
 
     for path in paths:
       let
@@ -255,7 +269,10 @@ proc open(plg: var Plugin) {.feudCallback.} =
             elif fuzzy:
               plg.openFuzzy(path)
             else:
-              plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
+              if selected:
+                discard plg.ctx.handleCommand(plg.ctx, togOpen)
+              else:
+                plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
           else:
             var
               path = path.expandFilename()
