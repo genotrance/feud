@@ -105,6 +105,9 @@ proc highlight(plg: var Plugin) {.feudCallback.} =
 
   plg.unhighlight()
   if length != 0:
+    freeCtxData[Search](plg)
+    getCtxData[Search](plg).needle = search
+
     var
       matches: seq[int]
       pos = 0
