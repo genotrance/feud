@@ -1,4 +1,4 @@
-import os, sequtils, sets, strformat, strutils, tables
+import deques, os, sequtils, sets, strformat, strutils, tables
 
 import "../.."/src/pluginapi
 import "../.."/wrappers/fuzzy
@@ -14,7 +14,8 @@ type
 
   Docs = ref object
     doclist: seq[Doc]
-    startupDir: string
+    dirHistory: Deque[string]
+    currDir: int
 
 proc getDocs(plg: var Plugin): Docs =
   return getCtxData[Docs](plg)
@@ -28,6 +29,23 @@ proc getDocId(plg: var Plugin, winid = -1): int =
 
 proc setDocId(plg: var Plugin, docid: int) =
   discard plg.ctx.handleCommand(plg.ctx, &"setDocId {docid}")
+
+proc setCurrentDir(plg: var Plugin, dir: string) =
+  var
+    docs = plg.getDocs()
+
+  let
+    pdir = getCurrentDir()
+  dir.setCurrentDir()
+  let
+    ndir = getCurrentDir()
+
+  if pdir != ndir:
+    if docs.currDir < docs.dirHistory.len-1:
+      docs.dirHistory.shrink(fromLast = docs.dirHistory.len - docs.currDir - 1)
+
+    docs.dirHistory.addLast(ndir)
+    docs.currDir = docs.dirHistory.len - 1
 
 proc findDocFromString(plg: var Plugin, srch: string): int =
   result = -1
@@ -121,10 +139,11 @@ proc switchDoc(plg: var Plugin, docid: int) =
   if lexer.len != 0:
     discard plg.ctx.handleCommand(plg.ctx, &"setTheme {lexer}")
 
-  if docs.doclist[docid].path notin ["Notifications", "New document"]:
-    docs.doclist[docid].path.parentDir().setCurrentDir()
-  else:
-    docs.startupDir.setCurrentDir()
+  if plg.getCbResult("get file:fileChdir") == "true":
+    if docs.doclist[docid].path notin ["Notifications", "New document"]:
+      docs.doclist[docid].path.parentDir().setCurrentDir()
+    else:
+      docs.dirHistory.peekFirst().setCurrentDir()
 
   discard plg.ctx.handleCommand(plg.ctx, "runHook postFileSwitch")
 
@@ -332,7 +351,9 @@ proc saveAs(plg: var Plugin) {.feudCallback.} =
 
     if name.len != 0:
       doc.path = name.expandFilename()
-      doc.path.parentDir().setCurrentDir()
+
+      if plg.getCbResult("get file:fileChdir") == "true":
+        doc.path.parentDir().setCurrentDir()
 
       plg.save()
 
@@ -459,6 +480,40 @@ proc last(plg: var Plugin) {.feudCallback.} =
 
   plg.switchDoc(last)
 
+proc cd(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+
+  if plg.ctx.cmdParam.len != 0:
+    if plg.ctx.cmdParam[0].len != 0:
+      let
+        path = plg.ctx.cmdParam[0].strip()
+
+      if path.dirExists():
+        plg.setCurrentDir(path)
+      elif path.fileExists():
+        plg.setCurrentDir(path.parentDir())
+      elif path == "$":
+        var
+          docid = plg.getDocId()
+
+        if docid > -1 and docid < docs.doclist.len:
+          plg.ctx.cmdParam = @[docs.doclist[docid].path]
+          plg.cd()
+      elif path == "-":
+        if docs.currDir != 0:
+          docs.currDir -= 1
+          docs.dirHistory[docs.currDir].setCurrentDir()
+      elif path == "+":
+        if docs.currDir < docs.dirHistory.len-1:
+          docs.currDir += 1
+          docs.dirHistory[docs.currDir].setCurrentDir()
+      else:
+        plg.ctx.notify(plg.ctx, "Directory doesn't exist: " & path)
+        return
+
+  plg.ctx.notify(plg.ctx, "Current directory: " & getCurrentDir())
+
 feudPluginDepends(["filetype", "theme", "window"])
 
 feudPluginLoad:
@@ -476,6 +531,7 @@ feudPluginLoad:
     docs.doclist.add notif
     plg.setDocId(0)
 
-    docs.startupDir = getCurrentDir()
+    docs.dirHistory = initDeque[string]()
+    docs.dirHistory.addLast(getCurrentDir())
 
   discard plg.ctx.handleCommand(plg.ctx, "hook preCloseWindow unload")

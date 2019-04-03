@@ -47,7 +47,18 @@ save                   - save current buffer
 saveAs <fullpath>      - save current buffer to new path
 ```
 
-Drag and drop of files is supported. The current directory is the path of the currently loaded file.
+Drag and drop of files is supported. The current directory changes to the path of the
+currently loaded file if `file:fileChdir` is set to `true`.
+
+Changing directories:
+```
+cd                     - show current directory
+cd path                - change directory to path if it exists
+cd file                - change directory to file location
+cd $                   - change directory to current buffer's location
+cd -                   - change back to previous directory
+cd +                   - change back to next directory
+```
 
 Switching buffers:
 ```
