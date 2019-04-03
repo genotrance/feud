@@ -47,7 +47,7 @@ save                   - save current buffer
 saveAs <fullpath>      - save current buffer to new path
 ```
 
-Current directory is relative to the path of the currently loaded file.
+Drag and drop of files is supported. The current directory is the path of the currently loaded file.
 
 Switching buffers:
 ```

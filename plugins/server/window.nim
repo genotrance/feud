@@ -3,7 +3,7 @@
 import os, sets, strformat, strutils, tables, times
 
 when defined(Windows):
-  import winim/inc/[commctrl, windef, winbase, winuser], winim/winstr
+  import winim/inc/[commctrl, shellapi, windef, winbase, winuser], winim/winstr
 
 import "../.."/src/pluginapi
 
@@ -316,6 +316,7 @@ proc createWindow(parent: HWND = 0, name = ""): HWND =
   result = CreateWindow("Scintilla", name, WS_CHILD, 0, 0, 1200, 800, parent, 0, GetModuleHandleW(nil), nil)
   doException result.IsWindow() != 0, "IsWindow() failed with " & $GetLastError()
 
+  result.DragAcceptFiles(1)
   result.ShowWindow(SW_SHOW)
 
   doException result.UpdateWindow() != 0, "UpdateWindow() failed with " & $GetLastError()
@@ -625,6 +626,18 @@ proc setDocId(plg: var Plugin) {.feudCallback.} =
     except:
       discard
 
+proc getDroppedFiles(hDrop: HDROP): seq[string] =
+  var
+    numFiles = hDrop.DragQueryFileA(cast[UINT](0xFFFFFFFF), nil, 0).int
+    data = alloc0(8192)
+    size: UINT
+  defer: data.dealloc()
+
+  for i in 0 .. numFiles-1:
+    size = hDrop.DragQueryFileA(cast[UINT](i), cast[LPSTR](data), 8192)
+    if size.int != 0:
+      result.add $cast[cstring](data)
+
 feudPluginDepends(["config"])
 
 feudPluginLoad:
@@ -694,6 +707,11 @@ feudPluginTick:
           elif msg.wparam == VK_DOWN:
             plg.getNextHistory()
             done = true
+    elif msg.message == WM_DROPFILES:
+      let
+        files = getDroppedFiles(cast[HDROP](msg.wparam))
+      if files.len != 0:
+        discard plg.ctx.handleCommand(plg.ctx, "open " & files.join(" "))
 
     if not done:
       discard TranslateMessage(addr msg)
