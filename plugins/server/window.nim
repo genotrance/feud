@@ -711,7 +711,7 @@ feudPluginTick:
       let
         files = getDroppedFiles(cast[HDROP](msg.wparam))
       if files.len != 0:
-        discard plg.ctx.handleCommand(plg.ctx, "open " & files.join(" "))
+        discard plg.ctx.handleCommand(plg.ctx, "open \"" & files.join("\" \"") & "\"")
 
     if not done:
       discard TranslateMessage(addr msg)
