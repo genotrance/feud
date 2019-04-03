@@ -218,6 +218,8 @@ proc open(plg: var Plugin) {.feudCallback.} =
             bestscore = score
             bestmatch = f
     if bestmatch.len != 0:
+      if " " in bestmatch or "\t" in bestmatch:
+        bestmatch = '"' & bestmatch & '"'
       discard plg.ctx.handleCommand(plg.ctx, &"togglePopup open {bestmatch}")
 
   var
