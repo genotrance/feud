@@ -168,6 +168,7 @@ proc loadFileContents(plg: var Plugin, path: string) =
       break
   f.close()
 
+  discard plg.ctx.msg(plg.ctx, SCI_SETSAVEPOINT)
   discard plg.ctx.handleCommand(plg.ctx, "runHook postFileLoad")
 
 proc newDoc(plg: var Plugin) {.feudCallback.} =
@@ -340,6 +341,7 @@ proc save(plg: var Plugin) {.feudCallback.} =
       f.close()
       plg.ctx.notify(plg.ctx, &"Saved {doc.path}")
 
+      discard plg.ctx.msg(plg.ctx, SCI_SETSAVEPOINT)
       discard plg.ctx.handleCommand(plg.ctx, &"setTitle {doc.path}")
     except:
       plg.ctx.notify(plg.ctx, &"Failed to save {doc.path}")

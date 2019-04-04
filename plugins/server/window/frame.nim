@@ -48,10 +48,13 @@ proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESU
         notify = cast[ptr SCNotification](lParam)
         hdr = cast[ptr NMHDR](lParam)
       if hdr[].code == SCN_UPDATEUI:
+        discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowUpdate")
         if (notify[].updated and SC_UPDATE_CONTENT) != 0:
           discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowContent")
         elif (notify[].updated and SC_UPDATE_SELECTION) != 0:
           discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowSelection")
+      elif hdr[].code in [SCN_SAVEPOINTREACHED, SCN_SAVEPOINTLEFT]:
+        discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowSavePoint")
     of WM_SIZE:
       plg.resizeFrame(hwnd)
       plg.positionPopup(hwnd.GetWindow(GW_CHILD).GetWindow(GW_CHILD))

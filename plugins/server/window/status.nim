@@ -53,3 +53,47 @@ proc setStatusBar(plg: var Plugin) {.feudCallback.} =
 
 proc setStatusBarCmd(plg: var Plugin) {.feudCallback.} =
   plg.setStatusBarHelper(exec = true)
+
+proc getPosition(plg: var Plugin) {.feudCallback.} =
+  let
+    pos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
+    line = plg.ctx.msg(plg.ctx, SCI_LINEFROMPOSITION, pos) + 1
+    col = plg.ctx.msg(plg.ctx, SCI_GETCOLUMN, pos) + 1
+
+  plg.ctx.cmdParam = @[strformat.`&`("R{line} : C{col}")]
+
+proc getDocSize(plg: var Plugin) {.feudCallback.} =
+  var
+    length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
+    lstr = ""
+
+  if length < 1024:
+    lstr = $length
+  elif length < 1024 * 1024:
+    lstr = strformat.`&`("{(length / 1024):.2f} KB")
+  elif length < 1024 * 1024 * 1024:
+    lstr = strformat.`&`("{(length / 1024 / 1024):.2f} MB")
+  else:
+    lstr = strformat.`&`("{(length / 1024 / 1024 / 1024):.2f} GB")
+
+  plg.ctx.cmdParam = @[lstr]
+
+proc getRatio(plg: var Plugin) {.feudCallback.} =
+  let
+    pos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
+    length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
+
+  plg.ctx.cmdParam = @[
+    if length != 0:
+      strformat.`&`("{(pos / length) * 100:3.2f}%")
+    else:
+      ""
+  ]
+
+proc getModified(plg: var Plugin) {.feudCallback.} =
+  plg.ctx.cmdParam = @[
+    if plg.ctx.msg(plg.ctx, SCI_GETMODIFY) == 0:
+      ""
+    else:
+      "***"
+  ]
