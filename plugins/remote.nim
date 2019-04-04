@@ -5,21 +5,21 @@ import "../src"/pluginapi
 import ".."/wrappers/nng
 
 type
-  ServerCtx = ref object
+  RemoteCtx = ref object
     listen: string
     dial: string
-    thread: Thread[tuple[pserver: ptr Server, listen, dial: string]]
+    thread: Thread[tuple[premote: ptr Remote, listen, dial: string]]
 
-  Server = object
+  Remote = object
     lock: Lock
     run: bool
     recvBuf: seq[string]
     sendBuf: seq[string]
 
-proc getServer(plg: var Plugin): ptr Server =
-  return cast[ptr Server](plg.pluginData)
+proc getRemote(plg: var Plugin): ptr Remote =
+  return cast[ptr Remote](plg.pluginData)
 
-proc monitorServer(tparam: tuple[pserver: ptr Server, listen, dial: string]) {.thread.} =
+proc monitorRemote(tparam: tuple[premote: ptr Remote, listen, dial: string]) {.thread.} =
   var
     socket: nng_socket
     listener: nng_listener
@@ -43,22 +43,22 @@ proc monitorServer(tparam: tuple[pserver: ptr Server, listen, dial: string]) {.t
     ret = socket.nng_recv(addr buf, addr sz, (NNG_FLAG_NONBLOCK or NNG_FLAG_ALLOC).cint)
     if ret == 0:
       if sz != 0:
-        withLock tparam.pserver[].lock:
-          tparam.pserver[].recvBuf.add $buf
+        withLock tparam.premote[].lock:
+          tparam.premote[].recvBuf.add $buf
       buf.nng_free(sz)
     elif ret == NNG_ETIMEDOUT:
       echo "Timed out"
 
-    withLock tparam.pserver[].lock:
-      for i in tparam.pserver[].sendBuf:
+    withLock tparam.premote[].lock:
+      for i in tparam.premote[].sendBuf:
         ret = socket.nng_send(i.cstring, (i.len+1).cuint, NNG_FLAG_NONBLOCK.cint)
-      if tparam.pserver[].sendBuf.len != 0:
-        tparam.pserver[].sendBuf = @[]
+      if tparam.premote[].sendBuf.len != 0:
+        tparam.premote[].sendBuf = @[]
 
     sleep(100)
 
-    withLock tparam.pserver[].lock:
-      run = tparam.pserver[].run
+    withLock tparam.premote[].lock:
+      run = tparam.premote[].run
 
   if tparam.dial.len != 0:
     discard dialer.nng_dialer_close()
@@ -67,104 +67,104 @@ proc monitorServer(tparam: tuple[pserver: ptr Server, listen, dial: string]) {.t
 
   discard socket.nng_close()
 
-proc stopServer(plg: var Plugin) {.feudCallback.} =
+proc stopRemote(plg: var Plugin) {.feudCallback.} =
   if plg.pluginData.isNil:
     return
 
   var
-    pserver = plg.getServer()
-    pserverCtx = getCtxData[ServerCtx](plg)
+    premote = plg.getRemote()
+    premoteCtx = getCtxData[RemoteCtx](plg)
 
-  withLock pserver[].lock:
-    pserver[].run = false
+  withLock premote[].lock:
+    premote[].run = false
 
-  pserverCtx.thread.joinThread()
+  premoteCtx.thread.joinThread()
 
-  freeShared(pserver)
+  freeShared(premote)
 
   plg.pluginData = nil
 
-proc initServer(plg: var Plugin) {.feudCallback.} =
-  plg.stopServer()
+proc initRemote(plg: var Plugin) {.feudCallback.} =
+  plg.stopRemote()
 
   var
-    pserver = newShared[Server]()
-    pserverCtx = getCtxData[ServerCtx](plg)
+    premote = newShared[Remote]()
+    premoteCtx = getCtxData[RemoteCtx](plg)
 
-  plg.pluginData = cast[pointer](pserver)
+  plg.pluginData = cast[pointer](premote)
 
-  pserver[].lock.initLock()
-  pserver[].run = true
+  premote[].lock.initLock()
+  premote[].run = true
 
   if plg.ctx.cmdParam.len == 0:
-    if pserverCtx[].listen.len == 0:
-      pserverCtx[].listen = "ipc:///tmp/feud"
+    if premoteCtx[].listen.len == 0:
+      premoteCtx[].listen = "ipc:///tmp/feud"
   else:
-    pserverCtx[].listen = plg.ctx.cmdParam[0]
+    premoteCtx[].listen = plg.ctx.cmdParam[0]
 
   if plg.ctx.cmdParam.len > 1:
-    pserverCtx[].dial = plg.ctx.cmdParam[1]
+    premoteCtx[].dial = plg.ctx.cmdParam[1]
 
-  createThread(pserverCtx.thread, monitorServer, (pserver, pserverCtx[].listen, pserverCtx[].dial))
+  createThread(premoteCtx.thread, monitorRemote, (premote, premoteCtx[].listen, premoteCtx[].dial))
 
-proc restartServer(plg: var Plugin) {.feudCallback.} =
-  plg.initServer()
+proc restartRemote(plg: var Plugin) {.feudCallback.} =
+  plg.initRemote()
 
-proc readServer(plg: var Plugin) =
+proc readRemote(plg: var Plugin) =
   if plg.pluginData.isNil:
     return
 
   var
-    pserver = plg.getServer()
+    premote = plg.getRemote()
     mode = ""
 
   withLock plg.ctx.pmonitor[].lock:
     mode = plg.ctx.pmonitor[].path
 
-  withLock pserver[].lock:
-    for i in pserver[].recvBuf:
+  withLock premote[].lock:
+    for i in premote[].recvBuf:
       if mode == "server":
         discard plg.ctx.handleCommand(plg.ctx, $i)
       else:
         echo $i
 
-    if pserver[].recvBuf.len != 0:
-      pserver[].recvBuf = @[]
+    if premote[].recvBuf.len != 0:
+      premote[].recvBuf = @[]
 
-proc sendServer(plg: var Plugin) {.feudCallback.} =
+proc sendRemote(plg: var Plugin) {.feudCallback.} =
   if plg.pluginData.isNil:
     return
 
   var
-    pserver = plg.getServer()
+    premote = plg.getRemote()
 
   if plg.ctx.cmdParam.len != 0:
-    withLock pserver[].lock:
-      pserver[].sendBuf.add plg.ctx.cmdParam[0]
+    withLock premote[].lock:
+      premote[].sendBuf.add plg.ctx.cmdParam[0]
 
 proc notifyClient(plg: var Plugin) =
   if plg.pluginData.isNil:
     return
 
   var
-    pserver = plg.getServer()
+    premote = plg.getRemote()
     mode = ""
 
   withLock plg.ctx.pmonitor[].lock:
     mode = plg.ctx.pmonitor[].path
 
   if plg.ctx.cmdParam.len != 0:
-    if mode == "server":
-      withLock pserver[].lock:
-        pserver[].sendBuf.add plg.ctx.cmdParam[0]
+    if mode == "remote":
+      withLock premote[].lock:
+        premote[].sendBuf.add plg.ctx.cmdParam[0]
 
 feudPluginLoad()
 
 feudPluginTick:
-  plg.readServer()
+  plg.readRemote()
 
 feudPluginNotify:
   plg.notifyClient()
 
 feudPluginUnload:
-  plg.stopServer()
+  plg.stopRemote()

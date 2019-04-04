@@ -200,9 +200,11 @@ Hooks can be deleted with `delHook name`.
 __Remote Navigation__
 
 Feud has an RPC plugin that allows remote navigation. The `feudc` command-line tool can be used to remote
-control a local or remote GUI instance. The interface is still being designed so is a POC at this point.
+control a local or remote GUI instance. It is based on the [nng](https://github.com/nanomsg/nng) bus protocol so
+should be possible to connect from any programming language with `nng` bindings. The interface is still being
+designed so is a POC at this point.
 
-Commands: `initServer restartServer stopServer sendServer`
+Commands: `initRemote restartRemote stopRemote sendRemote`
 
 __Feedback__
 

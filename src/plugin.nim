@@ -26,6 +26,22 @@ when not defined(binary):
 
     result = dir / (DynlibFormat % name)
 
+proc sourceChanged(sourcePath, dllPath: string): bool =
+  let
+    dllTime = dllPath.getLastModificationTime()
+
+  if sourcePath.getLastModificationTime() > dllTime:
+    result = true
+  else:
+    let
+      depDir = sourcePath.parentDir() / sourcePath.splitFile().name
+
+    if depDir.dirExists():
+      for dep in toSeq(walkFiles(depDir/"*.nim")):
+        if dep.getLastModificationTime() > dllTime:
+          result = true
+          break
+
 proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   var
     path = ""
@@ -77,8 +93,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
           dllPathNew = dllPath & ".new"
           name = sourcePath.splitFile().name
 
-        if not dllPath.fileExists() or
-          sourcePath.getLastModificationTime() > dllPath.getLastModificationTime():
+        if not dllPath.fileExists() or sourcePath.sourceChanged(dllPath):
           var
             relbuild =
               when defined(release):
