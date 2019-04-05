@@ -121,12 +121,18 @@ F1, F2 ... Tab, PgDn, PgUp, Home, End
 
 Hotkeys can map to a complete command with params to speed up common tasks.
 
-A few default hotkeys are defined in `feud.ini`.
+Most of the standard hotkeys are pre-defined in `feud.ini`.
 
 Aliases:
 ```
 alias o open           - create a short alias for the open command
 alias n open *.nim     - alias with params
+```
+
+Gist:
+```
+gist                   - create a gist on http://ix.io and copy URL to clipboard
+getGist http://url     - load gist into a new buffer
 ```
 
 __Configuration file__

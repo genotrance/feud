@@ -30,6 +30,16 @@ proc getDocId(plg: var Plugin, winid = -1): int =
 proc setDocId(plg: var Plugin, docid: int) =
   discard plg.ctx.handleCommand(plg.ctx, &"setDocId {docid}")
 
+proc getDocPath(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+    docid = plg.getDocId()
+
+  if docid != -1:
+    plg.ctx.cmdParam = @[docs.doclist[docid].path]
+  else:
+    plg.ctx.cmdParam = @[""]
+
 proc setCurrentDir(plg: var Plugin, dir: string) =
   var
     docs = plg.getDocs()
