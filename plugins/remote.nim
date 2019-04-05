@@ -100,10 +100,13 @@ proc initRemote(plg: var Plugin) {.feudCallback.} =
     if premoteCtx[].listen.len == 0:
       premoteCtx[].listen = "ipc:///tmp/feud"
   else:
-    premoteCtx[].listen = plg.ctx.cmdParam[0]
-
-  if plg.ctx.cmdParam.len > 1:
-    premoteCtx[].dial = plg.ctx.cmdParam[1]
+    let
+      (cmd, val) = plg.ctx.cmdParam[0].splitCmd()
+    if val.len != 0:
+      if cmd == "listen":
+        premoteCtx[].listen = val
+      elif cmd == "dial":
+        premoteCtx[].dial = val
 
   createThread(premoteCtx.thread, monitorRemote, (premote, premoteCtx[].listen, premoteCtx[].dial))
 

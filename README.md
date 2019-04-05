@@ -201,8 +201,18 @@ __Remote Navigation__
 
 Feud has an RPC plugin that allows remote navigation. The `feudc` command-line tool can be used to remote
 control a local or remote GUI instance. It is based on the [nng](https://github.com/nanomsg/nng) bus protocol so
-should be possible to connect from any programming language with `nng` bindings. The interface is still being
-designed so is a POC at this point.
+it should be possible to connect from any programming language with `nng` bindings. Following is an example of
+connecting from Python:
+
+```python
+import pynng
+bus = pynng.Bus0()
+bus.dial("ipc:///tmp/feud")
+bus.send("open test.nim".encode("utf-8"))
+bus.close()
+```
+
+All commands that can be run within the editor can be invoked this way.
 
 Commands: `initRemote restartRemote stopRemote sendRemote`
 

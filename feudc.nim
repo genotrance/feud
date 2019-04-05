@@ -14,7 +14,7 @@ proc handleCommand(ctx: var Ctx, command: string): bool =
   ctx.cmdParam = if val.len != 0: @[val] else: @[]
   if not ctx.handlePluginCommand(cmd):
     ctx.cmdParam = @[command]
-    discard ctx.handlePluginCommand("sendServer")
+    discard ctx.handlePluginCommand("sendRemote")
 
 proc messageLoop(ctx: var Ctx) =
   var
@@ -71,11 +71,14 @@ proc main(
 
     thread: Thread[void]
 
-  ctx.cmdParam = @[client, server]
-
   ctx.handleCommand = handleCommand
 
   ctx.initPlugins("client")
+
+  while not ctx.ready:
+    ctx.syncPlugins()
+
+  discard ctx.handleCommand(ctx, &"initRemote dial {server}")
 
   createThread(thread, initCmd)
 
