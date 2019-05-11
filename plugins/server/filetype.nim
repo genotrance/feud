@@ -25,6 +25,7 @@ const
     "objc": "c",
     "php": "hphp",
     "postscript": "ps",
+    "python": "p",
     "swift": "c",
   }.toTable()
 

@@ -145,7 +145,9 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
       "IDENTIFIER": plg.getCbResult("get theme:idColor"),
       "PREPROCESSOR": plg.getCbResult("get theme:preprocColor"),
 
-      "FUNCNAME": plg.getCbResult("get theme:idColor")
+      "FUNCNAME": plg.getCbResult("get theme:funcColor"),
+      "DEFNAME": plg.getCbResult("get theme:funcColor"),
+      "CLASSNAME": plg.getCbResult("get theme:funcColor"),
     }.toTable()
 
   if lexer.len != 0:
