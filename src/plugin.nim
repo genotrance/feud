@@ -144,22 +144,22 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
 
 proc notifyPlugins*(ctx: var Ctx) =
   var
-    notified = false
+    msg: string
+  deepCopy(msg, ctx.cmdParam[0])
+
   for pl in ctx.plugins.keys():
     var
       plg = ctx.plugins[pl]
     if not plg.onNotify.isNil:
       tryCatch:
+        ctx.cmdParam = @[msg]
         plg.onNotify(plg)
-        notified = true
       if not ret:
         plg.onNotify = nil
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
         ctx.unloadPlugin(plg.name)
 
-  # if not notified:
-  if ctx.cmdParam.len != 0:
-    echo ctx.cmdParam[0]
+  echo msg
 
   ctx.cmdParam = @[]
 

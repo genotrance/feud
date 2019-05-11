@@ -43,6 +43,7 @@ open -f path\to\fl     - fuzzy find file in path\to dir tree
 open -f                - fuzzy find selected text
 
 reload                 - reload current buffer
+reloadAll              - reload all buffers
 save                   - save current buffer
 saveAs <fullpath>      - save current buffer to new path
 ```

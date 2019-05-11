@@ -444,19 +444,6 @@ proc unload(plg: var Plugin) {.feudCallback.} =
 
         discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, nil, windowID=winid)
 
-proc reload(plg: var Plugin) {.feudCallback.} =
-  var
-    docs = plg.getDocs()
-    docid = plg.getDocId()
-
-  if docid > 0:
-    let
-      path = docs.doclist[docid].path
-
-    plg.loadFileContents(path)
-
-    plg.ctx.notify(plg.ctx, &"Reloaded {path}")
-
 proc next(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
@@ -493,6 +480,29 @@ proc last(plg: var Plugin) {.feudCallback.} =
     last = 0
 
   plg.switchDoc(last)
+
+proc reload(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+    docid = plg.getDocId()
+
+  if docid > 0:
+    let
+      path = docs.doclist[docid].path
+
+    plg.loadFileContents(path)
+
+    plg.ctx.notify(plg.ctx, &"Reloaded {path}")
+
+proc reloadAll(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+
+  plg.reload()
+  if docs.doclist.len != 2:
+    for i in 0 .. docs.doclist.len-1:
+      plg.next()
+      plg.reload()
 
 proc cd(plg: var Plugin) {.feudCallback.} =
   var
