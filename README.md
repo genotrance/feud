@@ -173,6 +173,9 @@ eMsg SCI_SETUSETABS 0  - set Scintilla to replace tabs with spaces
 eMsg SCI_SETTABWIDTH 2 - set Scintilla to set tab width to 2
 ```
 
+The `-v` flag prints the return value of the eMsg call and the `-p` flag directs the command to the popup associated
+with the active window.
+
 The full documentation for Scintilla is available [here](https://www.scintilla.org/ScintillaDoc.html).
 
 __Settings and Hooks__

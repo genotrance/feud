@@ -82,20 +82,27 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
     params = plg.getParam()
 
   for param in params:
-    let
-      verbose = "-v " in param
-      spl = param.replace("-v ", "").split(" ", maxsplit=3)
+    var
+      spl = param.parseCmdLine()
+      verbose = "-v" in spl
+      popup = "-p" in spl
+
+    if verbose:
+      spl.delete(spl.find("-v"))
+    if popup:
+      spl.delete(spl.find("-p"))
 
     var
       s, l, w: int
       wc: cstring
       ret: int
 
-    if SciDefs.hasKey(spl[0]):
-      s = SciDefs[spl[0]]
-    elif not spl[0].toInt(s):
-      plg.ctx.notify(plg.ctx, "Bad SCI value " & spl[0])
-      continue
+    if spl.len > 0:
+      if SciDefs.hasKey(spl[0]):
+        s = SciDefs[spl[0]]
+      elif not spl[0].toInt(s):
+        plg.ctx.notify(plg.ctx, "Bad SCI value " & spl[0])
+        continue
 
     if spl.len > 1:
       if SciDefs.hasKey(spl[1]):
@@ -107,17 +114,17 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
       if spl.len > 2:
         if SciDefs.hasKey(spl[2]):
           w = SciDefs[spl[2]]
-          ret = msg(plg.ctx, s, l, w.toPtr)
+          ret = msg(plg.ctx, s, l, w.toPtr, popup = popup)
         else:
           if not spl[2].toInt(w):
             wc = spl[2].cstring
-            ret = msg(plg.ctx, s, l, wc)
+            ret = msg(plg.ctx, s, l, wc, popup = popup)
           else:
-            ret = msg(plg.ctx, s, l, w.toPtr)
+            ret = msg(plg.ctx, s, l, w.toPtr, popup = popup)
       else:
-        ret = msg(plg.ctx, s, l)
+        ret = msg(plg.ctx, s, l, popup = popup)
     else:
-      ret = msg(plg.ctx, s)
+      ret = msg(plg.ctx, s, popup = popup)
 
     plg.ctx.cmdParam = @[$ret]
     if verbose:

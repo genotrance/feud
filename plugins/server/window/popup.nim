@@ -44,6 +44,7 @@ proc togglePopup(plg: var Plugin) {.feudCallback.} =
         param = plg.ctx.cmdParam[0]
       msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & " ").cstring, popup=true)
       msg(plg.ctx, SCI_GOTOPOS, param.len+1, popup=true)
+      msg(plg.ctx, SCI_SCROLLRANGE, 1, 0.toPtr, popup=true)
 
     msg(plg.ctx, SCI_MARKERDEFINE, 1, SC_MARK_ARROWS.toPtr, popup=true)
     msg(plg.ctx, SCI_MARKERADD, 0, 1.toPtr, popup=true)
