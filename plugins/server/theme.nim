@@ -123,6 +123,7 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
       "DEFAULT": plg.getCbResult("get theme:defColor"),
 
       "WORD": plg.getCbResult("get theme:wordColor"),
+      "WORD2": plg.getCbResult("get theme:wordColor"),
 
       "COMMENT": plg.getCbResult("get theme:commentColor"),
       "COMMENTLINE": plg.getCbResult("get theme:commentColor"),
@@ -142,6 +143,7 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
 
       "OPERATOR": plg.getCbResult("get theme:opColor"),
       "IDENTIFIER": plg.getCbResult("get theme:idColor"),
+      "PREPROCESSOR": plg.getCbResult("get theme:preprocColor"),
 
       "FUNCNAME": plg.getCbResult("get theme:idColor")
     }.toTable()

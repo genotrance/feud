@@ -132,7 +132,7 @@ alias n open *.nim     - alias with params
 
 Gist:
 ```
-gist                   - create a gist on http://ix.io and copy URL to clipboard
+gist                   - create gist of selection or buffer on http://ix.io and copy URL to clipboard
 getGist http://url     - load gist into a new buffer
 ```
 

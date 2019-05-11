@@ -89,10 +89,15 @@ proc gist(plg: var Plugin) {.feudCallback.} =
     discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 0.toPtr)
 
   let
-    data = cast[cstring](plg.ctx.msg(plg.ctx, SCI_GETCHARACTERPOINTER))
+    sel = plg.getSelection()
+    data =
+      if sel.len != 0:
+        sel
+      else:
+        $cast[cstring](plg.ctx.msg(plg.ctx, SCI_GETCHARACTERPOINTER))
 
   try:
-    let r = client.post(url, post & $data)
+    let r = client.post(url, post & data)
     if r.code() == Http200:
       gistUrl = r.body.strip()
       success = true

@@ -14,7 +14,7 @@ import strutils
 var
   dll = ".dll"
   exe = ".exe"
-  flags = "-d:release"
+  flags = "--opt:speed"
 
 when defined(Linux):
   dll = ".so"
@@ -73,7 +73,7 @@ task release, "Release build":
   binTask()
 
 task binary, "Release binary":
-  flags = "-d:binary -d:release"
+  flags = "-d:binary " & flags
   releaseTask()
 
 task debug, "Debug build":

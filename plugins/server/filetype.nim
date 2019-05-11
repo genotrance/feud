@@ -2,11 +2,39 @@ import os, parsexml, sequtils, streams, strutils, tables, xmltree
 
 import "../../src"/pluginapi
 
+const
+  lexMap = {
+    "autoit": SCLEX_AU3,
+    "c": SCLEX_CPP,
+    "cs": SCLEX_CPP,
+    "inno": SCLEX_INNOSETUP,
+    "java": SCLEX_CPP,
+    "javascript.js": SCLEX_CPP,
+    "objc": SCLEX_CPP,
+    "php": SCLEX_PHPSCRIPT,
+    "postscript": SCLEX_PS,
+    "swift": SCLEX_CPP,
+  }.toTable()
+
+  lexName = {
+    "autoit": "au3",
+    "cpp": "c",
+    "cs": "c",
+    "java": "c",
+    "javascript.js": "c",
+    "objc": "c",
+    "php": "hphp",
+    "postscript": "ps",
+    "swift": "c",
+  }.toTable()
+
 type
   Lang = ref object
     name: string
     lexer: int
+    lexName: string
     ext: seq[string]
+    commentLine: string
     keywords: seq[string]
 
 var
@@ -48,8 +76,18 @@ proc initLangs(plg: var Plugin) =
               lexerName = "SCLEX_" & lang.name.toUpperAscii
             if SciDefs.hasKey(lexerName):
               lang.lexer = SciDefs[lexerName]
-          elif x.attrKey == "ext" and x.attrValue.len != 0:
-            lang.ext = x.attrValue.split(' ')
+            elif lexMap.hasKey(lang.name):
+              lang.lexer = lexMap[lang.name]
+            if lexName.hasKey(lang.name):
+              lang.lexName = lexName[lang.name]
+            else:
+              lang.lexName = lang.name
+          elif x.attrValue.len != 0:
+            case x.attrKey
+            of "ext":
+              lang.ext = x.attrValue.split(' ')
+            of "commentLine":
+              lang.commentLine = x.attrValue
           x.next()
     of xmlCharData:
       lang.keywords.add x.charData
@@ -60,14 +98,7 @@ proc initLangs(plg: var Plugin) =
 
   x.close()
 
-proc resetLexer(plg: var Plugin) {.feudCallback.} =
-  discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, SCLEX_NULL)
-  for i in 0 .. 8:
-    discard plg.ctx.msg(plg.ctx, SCI_SETKEYWORDS, i, "".cstring)
-
-proc setLexer(plg: var Plugin) {.feudCallback.} =
-  plg.resetLexer()
-
+proc getLang(plg: var Plugin): Lang =
   if plg.ctx.cmdParam.len != 0:
     var
       (_, _, ext) = plg.ctx.cmdParam[0].splitFile()
@@ -75,16 +106,45 @@ proc setLexer(plg: var Plugin) {.feudCallback.} =
     ext = ext.strip(chars={'.'})
 
     if gLangs.hasKey(ext):
-      var
-        lang = gLangs[ext]
+      result = gLangs[ext]
 
-      discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, lang.lexer)
-      for i in 0 .. lang.keywords.len-1:
-        discard plg.ctx.msg(plg.ctx, SCI_SETKEYWORDS, i, lang.keywords[i].cstring)
+proc getCommentLine(plg: var Plugin) {.feudCallback.} =
+  var
+    lang = plg.getLang()
 
-      plg.ctx.cmdParam = @[lang.name]
-    else:
-      plg.ctx.cmdParam = @[]
+  if not lang.isNil and lang.commentLine.len != 0:
+    plg.ctx.cmdParam = @[lang.commentLine]
+  else:
+    plg.ctx.cmdParam = @[]
+
+proc getLexer(plg: var Plugin): int =
+  result = plg.ctx.msg(plg.ctx, SCI_GETLEXER)
+
+proc resetLexer(plg: var Plugin) {.feudCallback.} =
+  discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, SCLEX_NULL)
+  for i in 0 .. 8:
+    discard plg.ctx.msg(plg.ctx, SCI_SETKEYWORDS, i, "".cstring)
+
+proc setLexer(plg: var Plugin) {.feudCallback.} =
+  var
+    lang = plg.getLang()
+
+  plg.ctx.cmdParam = @[]
+  if not lang.isNil:
+    if lang.lexer == plg.getLexer():
+      return
+
+    plg.resetLexer()
+
+    discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, lang.lexer)
+    for i in 0 .. lang.keywords.len-1:
+      discard plg.ctx.msg(plg.ctx, SCI_SETKEYWORDS, i, lang.keywords[i].cstring)
+
+    plg.ctx.notify(plg.ctx, "Set language to " & lang.name)
+
+    plg.ctx.cmdParam = @[lang.lexName]
+  else:
+    plg.resetLexer()
 
 feudPluginDepends(["window"])
 
