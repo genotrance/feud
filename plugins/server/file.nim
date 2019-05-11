@@ -1,4 +1,4 @@
-import deques, os, sequtils, sets, strformat, strutils, tables
+import deques, os, sequtils, sets, strformat, strutils, tables, times
 
 import "../.."/src/pluginapi
 import "../.."/wrappers/fuzzy
@@ -10,6 +10,7 @@ type
     path: string
     docptr: pointer
     cursor: int
+    syncTime: Time
     windows: HashSet[int]
 
   Docs = ref object
@@ -128,7 +129,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
     currDoc = plg.getDocId()
     currWindow = plg.getCbIntResult("getCurrentWindow", -1)
 
-  if docid < 0 or docid > docs.doclist.len-1 or currWindow < 0 or currDoc < 0 or docid == currDoc:
+  if docid < 0 or docid > docs.doclist.len-1 or currWindow < 0 or currDoc < 0 or (docid == currDoc and docid != 0):
     return
 
   docs.doclist[currDoc].cursor = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
@@ -154,6 +155,11 @@ proc switchDoc(plg: var Plugin, docid: int) =
       docs.doclist[docid].path.parentDir().setCurrentDir()
     else:
       docs.dirHistory.peekFirst().setCurrentDir()
+
+  if docid == 0:
+    let
+      length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
+    discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, length)
 
   discard plg.ctx.handleCommand(plg.ctx, "runHook postFileSwitch")
 
@@ -315,6 +321,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
             doc.windows.init()
             doc.path = path
             doc.docptr = plg.ctx.msg(plg.ctx, SCI_CREATEDOCUMENT, info.size.toPtr).toPtr
+            doc.syncTime = path.getLastModificationTime()
 
             docs.doclist.add doc
 
@@ -350,6 +357,8 @@ proc save(plg: var Plugin) {.feudCallback.} =
       f.write(data)
       f.close()
       plg.ctx.notify(plg.ctx, &"Saved {doc.path}")
+
+      doc.syncTime = doc.path.getLastModificationTime()
 
       discard plg.ctx.msg(plg.ctx, SCI_SETSAVEPOINT)
       discard plg.ctx.handleCommand(plg.ctx, &"setTitle {doc.path}")
@@ -485,14 +494,14 @@ proc reload(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
     docid = plg.getDocId()
+    doc = docs.doclist[docid]
 
   if docid > 0:
-    let
-      path = docs.doclist[docid].path
+    plg.loadFileContents(doc.path)
 
-    plg.loadFileContents(path)
+    doc.syncTime = doc.path.getLastModificationTime()
 
-    plg.ctx.notify(plg.ctx, &"Reloaded {path}")
+    plg.ctx.notify(plg.ctx, &"Reloaded {doc.path}")
 
 proc reloadAll(plg: var Plugin) {.feudCallback.} =
   var
@@ -503,6 +512,18 @@ proc reloadAll(plg: var Plugin) {.feudCallback.} =
     for i in 0 .. docs.doclist.len-1:
       plg.next()
       plg.reload()
+
+proc reloadIfChanged(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+    docid = plg.getDocId()
+    doc = docs.doclist[docid]
+
+  if doc.path.fileExists() and doc.syncTime < doc.path.getLastModificationTime():
+    if plg.ctx.msg(plg.ctx, SCI_GETMODIFY) == 0:
+      plg.reload()
+    else:
+      plg.ctx.notify(plg.ctx, &"File '{doc.path.extractFilename()}' with unsaved modifications changed behind the scenes")
 
 proc cd(plg: var Plugin) {.feudCallback.} =
   var
@@ -559,3 +580,6 @@ feudPluginLoad:
     docs.dirHistory.addLast(getCurrentDir())
 
   discard plg.ctx.handleCommand(plg.ctx, "hook preCloseWindow unload")
+  discard plg.ctx.handleCommand(plg.ctx, "hook onWindowActivate reloadIfChanged")
+  discard plg.ctx.handleCommand(plg.ctx, "hook postFileSwitch reloadIfChanged")
+  discard plg.ctx.handleCommand(plg.ctx, "hook postNewWindow open 0")

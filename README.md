@@ -49,7 +49,9 @@ saveAs <fullpath>      - save current buffer to new path
 ```
 
 Drag and drop of files is supported. The current directory changes to the path of the
-currently loaded file if `file:fileChdir` is set to `true`.
+currently loaded file if `file:fileChdir` is set to `true`. Files are also automatically
+reloaded if they changed while working on another file or application and there
+are no unsaved modifications.
 
 Changing directories:
 ```

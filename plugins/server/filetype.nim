@@ -1,4 +1,4 @@
-import os, parsexml, sequtils, streams, strutils, tables, xmltree
+import os, parsexml, sequtils, streams, strformat, strutils, tables, xmltree
 
 import "../../src"/pluginapi
 
@@ -130,23 +130,20 @@ proc setLexer(plg: var Plugin) {.feudCallback.} =
   var
     lang = plg.getLang()
 
-  plg.ctx.cmdParam = @[]
   if not lang.isNil:
-    if lang.lexer == plg.getLexer():
-      return
+    if lang.lexer != plg.getLexer():
+      plg.ctx.notify(plg.ctx, &"Set language to {lang.name} for '{plg.ctx.cmdParam[0].extractFilename()}'")
 
     plg.resetLexer()
-
     discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, lang.lexer)
     for i in 0 .. lang.keywords.len-1:
       discard plg.ctx.msg(plg.ctx, SCI_SETKEYWORDS, i, lang.keywords[i].cstring)
 
-    plg.ctx.notify(plg.ctx, "Set language to " & lang.name)
-
     plg.ctx.cmdParam = @[lang.lexName]
   else:
     plg.resetLexer()
-
+    plg.ctx.cmdParam = @[]
+  
 feudPluginDepends(["window"])
 
 feudPluginLoad:

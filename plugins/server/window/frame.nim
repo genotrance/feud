@@ -33,6 +33,7 @@ proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESU
     of WM_ACTIVATE:
       hwnd.setFocus()
       plg.setCurrentWindow(hwnd)
+      discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowActivate")
     of WM_CREATE:
       var
         pCreate = cast[ptr CREATESTRUCT](lParam)
