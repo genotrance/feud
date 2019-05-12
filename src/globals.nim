@@ -20,9 +20,12 @@ type
     callbacks*: TableRef[string, proc(plg: var Plugin)]
     pluginData*: pointer
 
+  Run* = enum
+    stopped, paused, executing
+
   PluginMonitor* = object
     lock*: Lock
-    run*: bool
+    run*: Run
     path*: string
     load*: seq[string]
     init*: seq[string]
@@ -30,7 +33,7 @@ type
     ready*: bool
 
   Ctx* = ref object
-    run*: bool
+    run*: Run
     ready*: bool
     cli*: seq[string]
 

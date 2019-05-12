@@ -51,43 +51,44 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   withLock pmonitor[].lock:
     path = pmonitor[].path
 
-  when defined(binary):
-    while true:
-      var
-        dllPaths = toSeq(walkFiles(base/"*.dll"))
-      dllPaths.add toSeq(walkFiles(base/path/"*.dll"))
+  while true:
+    defer:
+      sleep(delay)
 
-      withLock pmonitor[].lock:
-        if not pmonitor[].run:
-          break
+    let
+      ext =
+        when defined(binary):
+          "dll"
+        else:
+          "nim"
 
-        if not pmonitor[].ready and pmonitor[].processed.len == dllPaths.len:
-          pmonitor[].ready = true
-          delay = 2000
+    var
+      xPaths = toSeq(walkFiles(base/"*." & ext))
+    xPaths.add toSeq(walkFiles(base/path/"*." & ext))
 
-        for dllPath in dllPaths:
-          let
-            name = dllPath.splitFile().name
+    withLock pmonitor[].lock:
+      case pmonitor[].run
+      of paused:
+        continue
+      of stopped:
+        break
+      else:
+        discard
+
+      if not pmonitor[].ready and pmonitor[].processed.len == xPaths.len:
+        pmonitor[].ready = true
+        delay = 2000
+
+    when defined(binary):
+      for dllPath in xPaths:
+        let
+          name = dllPath.splitFile().name
+        withLock pmonitor[].lock:
           if name notin pmonitor[].processed:
             pmonitor[].processed.incl name
             pmonitor[].load.add &"{dllPath}"
-
-      sleep(delay)
-  else:
-    while true:
-      var
-        sourcePaths = toSeq(walkFiles(base/"*.nim"))
-      sourcePaths.add toSeq(walkFiles(base/path/"*.nim"))
-
-      withLock pmonitor[].lock:
-        if not pmonitor[].run:
-          break
-
-        if not pmonitor[].ready and pmonitor[].processed.len == sourcePaths.len:
-          pmonitor[].ready = true
-          delay = 2000
-
-      for sourcePath in sourcePaths:
+    else:
+      for sourcePath in xPaths:
         let
           dllPath = sourcePath.dll
           dllPathNew = dllPath & ".new"
@@ -97,7 +98,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
           var
             relbuild =
               when defined(release):
-                "-d:release"
+                "--opt:speed"
               else:
                 "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert"
             output = ""
@@ -119,8 +120,6 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             if name notin pmonitor[].processed:
               pmonitor[].processed.incl name
               pmonitor[].load.add &"{dllPath}"
-
-      sleep(delay)
 
 proc unloadPlugin(ctx: var Ctx, name: string) =
   if ctx.plugins.hasKey(name):
@@ -169,7 +168,7 @@ proc initPlugins*(ctx: var Ctx, path: string) =
 
   ctx.pmonitor = newShared[PluginMonitor]()
   ctx.pmonitor[].lock.initLock()
-  ctx.pmonitor[].run = true
+  ctx.pmonitor[].run = executing
   ctx.pmonitor[].path = path
 
   ctx.pmonitor[].load = @[]
@@ -280,7 +279,7 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
 
 proc stopPlugins*(ctx: var Ctx) =
   withLock ctx.pmonitor[].lock:
-    ctx.pmonitor[].run = false
+    ctx.pmonitor[].run = stopped
 
   while ctx.plugins.len != 0:
     for pl in ctx.plugins.keys():
@@ -348,6 +347,18 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
       else:
         for pl in ctx.plugins.keys():
           ctx.unloadPlugin(pl)
+    of "presume":
+      withLock ctx.pmonitor[].lock:
+        ctx.pmonitor[].run = executing
+      ctx.notify(ctx, &"Plugin monitor resumed")
+    of "ppause":
+      withLock ctx.pmonitor[].lock:
+        ctx.pmonitor[].run = paused
+      ctx.notify(ctx, &"Plugin monitor paused")
+    of "pstop":
+      withLock ctx.pmonitor[].lock:
+        ctx.pmonitor[].run = stopped
+      ctx.notify(ctx, &"Plugin monitor exited")
     else:
       result = false
       for pl in ctx.plugins.keys():

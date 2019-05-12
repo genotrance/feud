@@ -21,7 +21,7 @@ proc handleCommand*(ctx: var Ctx, command: string): bool =
 
   case cmd:
     of "quit", "exit":
-      ctx.run = false
+      ctx.run = stopped
     of "notify":
       if param.len != 0:
         ctx.notify(ctx, param)
@@ -35,7 +35,7 @@ proc handleCommand*(ctx: var Ctx, command: string): bool =
 proc initCtx(): Ctx =
   result = new(Ctx)
 
-  result.run = true
+  result.run = executing
   result.handleCommand = handleCommand
 
 proc feudStart*(cmds: seq[string]) =
@@ -47,7 +47,7 @@ proc feudStart*(cmds: seq[string]) =
   initScintilla()
   ctx.initPlugins("server")
 
-  while ctx.run:
+  while ctx.run == executing:
     ctx.syncPlugins()
 
   ctx.stopPlugins()

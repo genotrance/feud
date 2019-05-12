@@ -18,16 +18,16 @@ proc handleCommand(ctx: var Ctx, command: string): bool =
 
 proc messageLoop(ctx: var Ctx) =
   var
-    run = true
+    run = executing
 
-  while run:
+  while run == executing:
     let (ready, command) = gCh.tryRecv()
 
     if ready:
       discard handleCommand(ctx, command)
 
       if command == "exit":
-        run = false
+        run = stopped
 
     ctx.syncPlugins()
 
@@ -35,10 +35,10 @@ proc messageLoop(ctx: var Ctx) =
 
 proc initCmd() =
   var
-    run = true
+    run = executing
 
   sleep(1000)
-  while run:
+  while run == executing:
     let
       command = readLineFromStdin("feud> ")
 
@@ -46,7 +46,7 @@ proc initCmd() =
       doAssert gCh.trySend(command), "Failed to send over channel"
 
     if command == "exit":
-      run = false
+      run = stopped
 
     sleep(100)
 
