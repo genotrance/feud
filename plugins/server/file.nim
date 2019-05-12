@@ -39,7 +39,7 @@ proc getDocPath(plg: var Plugin) {.feudCallback.} =
   if docid != -1:
     plg.ctx.cmdParam = @[docs.doclist[docid].path]
   else:
-    plg.ctx.cmdParam = @[""]
+    plg.ctx.cmdParam = @[]
 
 proc setCurrentDir(plg: var Plugin, dir: string) =
   var

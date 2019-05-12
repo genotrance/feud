@@ -97,6 +97,11 @@ newWindow              - open a new editor window
 closeWindow            - close current window
 ```
 
+Buffer actions:
+```
+toggleComment          - comment / uncomment selection or line
+```
+
 Shell:
 ```
 ! command              - Run command and print output to new buffer

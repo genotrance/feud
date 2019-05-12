@@ -79,7 +79,12 @@ proc gist(plg: var Plugin) {.feudCallback.} =
   var
     client = newHttpClient(proxy = getProxy())
     url = "http://ix.io"
-    name = plg.getCbResult("getDocPath").extractFilename()
+    path = plg.getCbResult("getDocPath")
+    name =
+      if path.len != 0:
+        path.extractFilename()
+      else:
+        "test.txt"
     post = "name:1=" & name & "&f:1="
     success = false
     gistUrl = ""

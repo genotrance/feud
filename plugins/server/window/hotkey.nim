@@ -1,8 +1,12 @@
-const VKTable = {
-  "F1": 112, "F2": 113, "F3": 114, "F4": 115, "F5": 116, "F6": 117, "F7": 118, "F8": 119, "F9": 120, "F10": 121,
-  "F11": 122, "F12": 123, "F13": 124, "F14": 125, "F15": 126, "F16": 127, "F17": 128, "F18": 129, "F19": 130, "F20": 131,
-  "F21": 132, "F22": 133, "F23": 134, "F24": 135, "Tab": 9, "PgDn": 34, "PgUp": 35, "Home": 36, "End": 35
-}.toTable()
+const
+  VKTable = {
+    "F1": 112, "F2": 113, "F3": 114, "F4": 115, "F5": 116, "F6": 117, "F7": 118, "F8": 119, "F9": 120, "F10": 121,
+    "F11": 122, "F12": 123, "F13": 124, "F14": 125, "F15": 126, "F16": 127, "F17": 128, "F18": 129, "F19": 130, "F20": 131,
+    "F21": 132, "F22": 133, "F23": 134, "F24": 135, "Tab": 9, "PgDn": 34, "PgUp": 35, "Home": 36, "End": 35,
+
+    ";": 186, ":": 186, "+": 187, ",": 188, "<": 188, "-": 189, "_": 189, ".": 190, ">": 190, "/": 191, "?": 191,
+    "~": 192, "`": 192, "[": 219, "{": 219, "\\": 220, "|": 220, "]": 221, "}": 221, "'": 222, "\"": 222
+  }.toTable()
 
 proc hotkey(plg: var Plugin) {.feudCallback.} =
   var
@@ -41,7 +45,7 @@ proc hotkey(plg: var Plugin) {.feudCallback.} =
           of '+':
             fsModifiers = fsModifiers or MOD_SHIFT
           else:
-            if spec.len != 0 or i != hotkey.len-1:
+            if spec.len != 0 or i != hotkey.len-1 or VKTable.hasKey($hotkey[i]):
               spec &= hotkey[i]
             else:
               vk = hotkey[i].toUpperAscii
