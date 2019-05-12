@@ -26,7 +26,7 @@ proc messageLoop(ctx: var Ctx) =
     if ready:
       discard handleCommand(ctx, command)
 
-      if command == "exit":
+      if command == "fexit":
         run = stopped
 
     ctx.syncPlugins()
@@ -45,7 +45,7 @@ proc initCmd() =
     if command.len != 0:
       doAssert gCh.trySend(command), "Failed to send over channel"
 
-    if command == "exit":
+    if command == "fexit":
       run = stopped
 
     sleep(100)
@@ -80,7 +80,12 @@ proc main(
 
   discard ctx.handleCommand(ctx, &"initRemote dial {server}")
 
-  createThread(thread, initCmd)
+  if command.len == 0:
+    createThread(thread, initCmd)
+  else:
+    for cmd in command:
+      doAssert gCh.trySend(cmd), "Failed to send through channel locally"
+    doAssert gCh.trySend("fexit"), "Failed to send through channel locally"
 
   ctx.messageLoop()
 
