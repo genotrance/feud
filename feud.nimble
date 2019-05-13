@@ -83,3 +83,6 @@ task debug, "Debug build":
 task dbin, "Debug binaries":
   flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert"
   binTask()
+
+task test, "Tester":
+  exec "nim tests/test.nims"

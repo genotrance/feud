@@ -80,6 +80,9 @@ proc stopRemote(plg: var Plugin) {.feudCallback.} =
 
   premoteCtx.thread.joinThread()
 
+  if premoteCtx[].listen.len != 0:
+    plg.ctx.notify(plg.ctx, "Stopped remote plugin at " & premoteCtx[].listen)
+
   freeShared(premote)
 
   plg.pluginData = nil
@@ -109,6 +112,9 @@ proc initRemote(plg: var Plugin) {.feudCallback.} =
         premoteCtx[].dial = val
 
   createThread(premoteCtx.thread, monitorRemote, (premote, premoteCtx[].listen, premoteCtx[].dial))
+
+  if premoteCtx[].listen.len != 0:
+    plg.ctx.notify(plg.ctx, "Started remote plugin at " & premoteCtx[].listen)
 
 proc restartRemote(plg: var Plugin) {.feudCallback.} =
   plg.initRemote()
