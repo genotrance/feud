@@ -2,6 +2,9 @@ import cligen, os, rdstdin, strformat, strutils
 
 import "."/src/[globals, plugin, utils]
 
+const
+  err = "Failed to send through channel locally"
+
 var
   gCh: Channel[string]
 
@@ -11,10 +14,28 @@ proc handleCommand(ctx: var Ctx, command: string): bool =
   let
     (cmd, val) = command.splitCmd()
 
+  if cmd == "runHook":
+    return true
+
   ctx.cmdParam = if val.len != 0: @[val] else: @[]
   if not ctx.handlePluginCommand(cmd):
     ctx.cmdParam = @[command]
     discard ctx.handlePluginCommand("sendRemote")
+
+proc handleAck(ctx: var Ctx, command: string) =
+  let
+    (cmd, val) = command.splitCmd()
+    valI = parseInt(val)
+  for i in 0 .. valI-1:
+    for j in 0 .. 100:
+      discard handleCommand(ctx, "getAck")
+      if ctx.cmdParam.len != 0:
+        break
+      ctx.syncPlugins()
+      sleep(100)
+    if ctx.cmdParam.len == 0:
+      echo "Not all commands ack'd"
+      quit(1)
 
 proc messageLoop(ctx: var Ctx) =
   var
@@ -24,10 +45,12 @@ proc messageLoop(ctx: var Ctx) =
     let (ready, command) = gCh.tryRecv()
 
     if ready:
-      discard handleCommand(ctx, command)
-
       if command == "fexit":
         run = stopped
+      elif command.startsWith("ack "):
+        ctx.handleAck(command)
+      else:
+        discard handleCommand(ctx, command)
 
     ctx.syncPlugins()
 
@@ -43,7 +66,7 @@ proc initCmd() =
       command = readLineFromStdin("feud> ")
 
     if command.len != 0:
-      doAssert gCh.trySend(command), "Failed to send over channel"
+      doAssert gCh.trySend(command), err
 
     if command == "fexit":
       run = stopped
@@ -78,14 +101,16 @@ proc main(
   while not ctx.ready:
     ctx.syncPlugins()
 
-  discard ctx.handleCommand(ctx, &"initRemote dial {server}")
+  discard handleCommand(ctx, &"initRemote dial {server}")
 
   if command.len == 0:
     createThread(thread, initCmd)
   else:
     for cmd in command:
-      doAssert gCh.trySend(cmd), "Failed to send through channel locally"
-    doAssert gCh.trySend("fexit"), "Failed to send through channel locally"
+      doAssert gCh.trySend(cmd), err
+    if "quit" notin command and "exit" notin command:
+      doAssert gCh.trySend("ack " & $command.len), err
+    doAssert gCh.trySend("fexit"), err
 
   ctx.messageLoop()
 

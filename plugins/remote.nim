@@ -1,4 +1,4 @@
-import locks, os, strformat, strutils, tables
+import deques, locks, os, strformat, strutils, tables
 
 import "../src"/pluginapi
 
@@ -13,8 +13,9 @@ type
   Remote = object
     lock: Lock
     run: bool
-    recvBuf: seq[string]
-    sendBuf: seq[string]
+    recvBuf: Deque[string]
+    sendBuf: Deque[string]
+    ack: int
 
 proc getRemote(plg: var Plugin): ptr Remote =
   return cast[ptr Remote](plg.pluginData)
@@ -44,16 +45,23 @@ proc monitorRemote(tparam: tuple[premote: ptr Remote, listen, dial: string]) {.t
     if ret == 0:
       if sz != 0:
         withLock tparam.premote[].lock:
-          tparam.premote[].recvBuf.add $buf
+          tparam.premote[].recvBuf.addLast $buf
       buf.nng_free(sz)
     elif ret == NNG_ETIMEDOUT:
       echo "Timed out"
+    elif ret == NNG_EAGAIN:
+      discard
+    else:
+      echo "Recv failed for some reason " & $ret
 
     withLock tparam.premote[].lock:
-      for i in tparam.premote[].sendBuf:
-        ret = socket.nng_send(i.cstring, (i.len+1).cuint, NNG_FLAG_NONBLOCK.cint)
       if tparam.premote[].sendBuf.len != 0:
-        tparam.premote[].sendBuf = @[]
+        buf = tparam.premote[].sendBuf.peekFirst()
+        ret = socket.nng_send(buf, (buf.len+1).cuint, NNG_FLAG_NONBLOCK.cint)
+        if ret notin [0, NNG_EAGAIN.int]:
+          echo "Send failed for some reason " & $ret
+        else:
+          discard tparam.premote[].sendBuf.popFirst()
 
     sleep(100)
 
@@ -98,6 +106,8 @@ proc initRemote(plg: var Plugin) {.feudCallback.} =
 
   premote[].lock.initLock()
   premote[].run = true
+  premote[].recvBuf = initDeque[string]()
+  premote[].sendBuf = initDeque[string]()
 
   if plg.ctx.cmdParam.len == 0:
     if premoteCtx[].listen.len == 0:
@@ -125,20 +135,13 @@ proc readRemote(plg: var Plugin) =
 
   var
     premote = plg.getRemote()
-    mode = ""
 
-  withLock plg.ctx.pmonitor[].lock:
-    mode = plg.ctx.pmonitor[].path
-
+  plg.ctx.cmdParam = @[]
   withLock premote[].lock:
-    for i in premote[].recvBuf:
-      if mode == "server":
-        discard plg.ctx.handleCommand(plg.ctx, $i)
-      else:
-        echo $i
+    for i in premote[].recvBuf.items:
+      plg.ctx.cmdParam.add $i
 
-    if premote[].recvBuf.len != 0:
-      premote[].recvBuf = @[]
+    premote[].recvBuf.clear()
 
 proc sendRemote(plg: var Plugin) {.feudCallback.} =
   if plg.pluginData.isNil:
@@ -149,9 +152,39 @@ proc sendRemote(plg: var Plugin) {.feudCallback.} =
 
   if plg.ctx.cmdParam.len != 0:
     withLock premote[].lock:
-      premote[].sendBuf.add plg.ctx.cmdParam[0]
+      premote[].sendBuf.addLast plg.ctx.cmdParam[0]
+
+    plg.ctx.cmdParam = @[]
+
+proc getAck(plg: var Plugin) {.feudCallback.} =
+  if plg.pluginData.isNil:
+    return
+
+  var
+    premote = plg.getRemote()
+
+  plg.ctx.cmdParam = @[]
+  withLock premote[].lock:
+    if premote[].ack > 0:
+      premote[].ack -= 1
+      plg.ctx.cmdParam = @["ack"]
 
 proc notifyClient(plg: var Plugin) =
+  if plg.pluginData.isNil:
+    return
+
+  var
+    mode = ""
+
+  withLock plg.ctx.pmonitor[].lock:
+    mode = plg.ctx.pmonitor[].path
+
+  if mode == "server":
+    plg.sendRemote()
+
+feudPluginLoad()
+
+feudPluginTick:
   if plg.pluginData.isNil:
     return
 
@@ -162,15 +195,20 @@ proc notifyClient(plg: var Plugin) =
   withLock plg.ctx.pmonitor[].lock:
     mode = plg.ctx.pmonitor[].path
 
-  if plg.ctx.cmdParam.len != 0:
-    if mode == "remote":
-      withLock premote[].lock:
-        premote[].sendBuf.add plg.ctx.cmdParam[0]
-
-feudPluginLoad()
-
-feudPluginTick:
   plg.readRemote()
+  if plg.ctx.cmdParam.len != 0:
+    if mode == "server":
+      for i in plg.ctx.cmdParam:
+        discard plg.ctx.handleCommand(plg.ctx, i)
+        plg.ctx.cmdParam = @["ack"]
+        plg.sendRemote()
+    else:
+      for i in plg.ctx.cmdParam:
+        if i == "ack":
+          withLock premote[].lock:
+            premote[].ack += 1
+        else:
+          echo i
 
 feudPluginNotify:
   plg.notifyClient()

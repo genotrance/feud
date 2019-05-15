@@ -19,7 +19,7 @@ proc toggleComment(plg: var Plugin) {.feudCallback.} =
       selEndLine -= 1
     selEnd = plg.ctx.msg(plg.ctx, SCI_GETLINEENDPOSITION, selEndLine)
 
-  if selStart != selEnd:
+  if selStart < selEnd:
     var
       length = selEnd - selStart
       data = alloc0(length+1)
@@ -53,4 +53,3 @@ proc toggleComment(plg: var Plugin) {.feudCallback.} =
 feudPluginDepends(["config", "window"])
 
 feudPluginLoad()
-  

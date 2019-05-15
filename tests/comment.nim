@@ -1,5 +1,5 @@
 let
-  cmds = @[
+  commentCmds = @[
     "open feud.nim",
     "eMsg SCI_SELECTALL",
     "toggleComment",
@@ -9,10 +9,10 @@ let
 
 exec "git checkout feud.nim"
 
-cmds.execFeudC()
+discard commentCmds.execFeudC()
 
 doAssert gorgeEx("git diff ..\\feud.nim").output.len != 0, "File didn't change"
 
-cmds.execFeudC()
+discard commentCmds.execFeudC()
 
 doAssert gorgeEx("git diff ..\\feud.nim").output.len == 0, "File didn't revert"
