@@ -36,7 +36,7 @@ proc popupGrabFocus(plg: var Plugin) {.feudCallback.} =
   if hwnd.IsWindowVisible() == 1:
     msg(plg.ctx, SCI_GRABFOCUS, popup=true)
 
-proc togglePopup(plg: var Plugin) {.feudCallback.} =
+proc closePopup(plg: var Plugin) {.feudCallback.} =
   var
     windows = plg.getWindows()
     hwnd = windows.editors[windows.current].popup
@@ -45,6 +45,14 @@ proc togglePopup(plg: var Plugin) {.feudCallback.} =
     msg(plg.ctx, SCI_CLEARALL, popup=true)
     hwnd.ShowWindow(SW_HIDE)
     msg(plg.ctx, SCI_GRABFOCUS)
+
+proc togglePopup(plg: var Plugin) {.feudCallback.} =
+  var
+    windows = plg.getWindows()
+    hwnd = windows.editors[windows.current].popup
+
+  if hwnd.IsWindowVisible() == 1:
+    plg.closePopup()
   else:
     plg.positionPopup(hwnd)
     if plg.ctx.cmdParam.len != 0:

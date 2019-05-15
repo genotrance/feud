@@ -294,9 +294,9 @@ feudPluginLoad:
     plg.newWindow()
   discard plg.ctx.handleCommand(plg.ctx, "runHook postWindowLoad")
 
-  discard plg.ctx.handleCommand(plg.ctx, "hook onLeftClick popupGrabFocus")
-  discard plg.ctx.handleCommand(plg.ctx, "hook onMiddleClick popupGrabFocus")
-  discard plg.ctx.handleCommand(plg.ctx, "hook onRightClick popupGrabFocus")
+  discard plg.ctx.handleCommand(plg.ctx, "hook onLeftClick closePopup")
+  discard plg.ctx.handleCommand(plg.ctx, "hook onMiddleClick closePopup")
+  discard plg.ctx.handleCommand(plg.ctx, "hook onRightClick closePopup")
 
 feudPluginTick:
   var
