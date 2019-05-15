@@ -294,6 +294,10 @@ feudPluginLoad:
     plg.newWindow()
   discard plg.ctx.handleCommand(plg.ctx, "runHook postWindowLoad")
 
+  discard plg.ctx.handleCommand(plg.ctx, "hook onLeftClick popupGrabFocus")
+  discard plg.ctx.handleCommand(plg.ctx, "hook onMiddleClick popupGrabFocus")
+  discard plg.ctx.handleCommand(plg.ctx, "hook onRightClick popupGrabFocus")
+
 feudPluginTick:
   var
     msg: MSG
@@ -344,6 +348,12 @@ feudPluginTick:
         files = getDroppedFiles(cast[HDROP](msg.wparam))
       if files.len != 0:
         discard plg.ctx.handleCommand(plg.ctx, "open \"" & files.join("\" \"") & "\"")
+    elif msg.message == WM_LBUTTONUP:
+      discard plg.ctx.handleCommand(plg.ctx, "runHook onLeftClick")
+    elif msg.message == WM_MBUTTONUP:
+      discard plg.ctx.handleCommand(plg.ctx, "runHook onMiddleClick")
+    elif msg.message == WM_RBUTTONUP:
+      discard plg.ctx.handleCommand(plg.ctx, "runHook onRightClick")
 
     if not done:
       discard TranslateMessage(addr msg)

@@ -28,6 +28,14 @@ proc positionPopup(plg: var Plugin, hwnd: HWND) =
       pix,
       if hwnd.IsWindowVisible == 1: SWP_SHOWWINDOW else: 0)
 
+proc popupGrabFocus(plg: var Plugin) {.feudCallback.} =
+  var
+    windows = plg.getWindows()
+    hwnd = windows.editors[windows.current].popup
+
+  if hwnd.IsWindowVisible() == 1:
+    msg(plg.ctx, SCI_GRABFOCUS, popup=true)
+
 proc togglePopup(plg: var Plugin) {.feudCallback.} =
   var
     windows = plg.getWindows()

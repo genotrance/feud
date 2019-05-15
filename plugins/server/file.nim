@@ -157,9 +157,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
       docs.dirHistory.peekFirst().setCurrentDir()
 
   if docid == 0:
-    let
-      length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
-    discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, length)
+    plg.gotoEnd()
 
   discard plg.ctx.handleCommand(plg.ctx, "runHook postFileSwitch")
 

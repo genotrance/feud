@@ -40,12 +40,16 @@ proc execLive(plg: var Plugin, cmd: string) =
   if err != 0:
     plg.ctx.notify(plg.ctx, "Command failed: " & $err)
 
+  plg.gotoEnd()
+
 proc exec(plg: var Plugin) {.feudCallback.} =
   var
     params = plg.getParam()
 
   for param in params:
     plg.execLive(param)
+
+  discard plg.ctx.handleCommand(plg.ctx, "togglePopup !>")
 
 proc execNew(plg: var Plugin) {.feudCallback.} =
   let
@@ -54,6 +58,8 @@ proc execNew(plg: var Plugin) {.feudCallback.} =
   if plg.ctx.handleCommand(plg.ctx, "newDoc"):
     for param in params:
       plg.execLive(param)
+
+  discard plg.ctx.handleCommand(plg.ctx, "togglePopup !>")
 
 proc saveToTemp(plg: var Plugin): tuple[tmpfile: string, selection: bool] =
   result.tmpfile = getTempDir() / "feud_shell_" & $(getTime().toUnix()) & ".txt"
@@ -114,6 +120,8 @@ proc pipeNew(plg: var Plugin) {.feudCallback.} =
   if tmpfile.len != 0:
     if plg.ctx.handleCommand(plg.ctx, "newDoc"):
       plg.execPipe(tmpfile, params)
+
+  discard plg.ctx.handleCommand(plg.ctx, "togglePopup !>")
 
 feudPluginDepends(["alias", "window"])
 

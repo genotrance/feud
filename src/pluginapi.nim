@@ -126,6 +126,11 @@ proc getSelection*(plg: var Plugin): string =
     discard plg.ctx.msg(plg.ctx, SCI_GETSELTEXT, 0, data)
     result = ($cast[cstring](data)).strip()
 
+proc gotoEnd*(plg: var Plugin) =
+  let
+    length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
+  discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, length)
+
 proc getCbResult*(plg: var Plugin, command: string): string =
   if plg.ctx.handleCommand(plg.ctx, command):
     if plg.ctx.cmdParam.len != 0 and plg.ctx.cmdParam[0].len != 0:
