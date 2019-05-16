@@ -10,6 +10,7 @@ type
     path: string
     docptr: pointer
     cursor: int
+    firstLine: int
     syncTime: Time
     windows: HashSet[int]
 
@@ -133,6 +134,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
     return
 
   docs.doclist[currDoc].cursor = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
+  docs.doclist[currDoc].firstLine = plg.ctx.msg(plg.ctx, SCI_GETFIRSTVISIBLELINE)
   discard plg.ctx.msg(plg.ctx, SCI_ADDREFDOCUMENT, 0, docs.doclist[currDoc].docptr)
   docs.doclist[currDoc].windows.excl currWindow
 
@@ -140,6 +142,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
   discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, docs.doclist[docid].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_RELEASEDOCUMENT, 0, docs.doclist[docid].docptr)
   discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, docs.doclist[docid].cursor)
+  discard plg.ctx.msg(plg.ctx, SCI_SETFIRSTVISIBLELINE, docs.doclist[docid].firstLine)
 
   plg.setDocId(docid)
 
