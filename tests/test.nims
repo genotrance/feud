@@ -29,6 +29,7 @@ sleep(2)
 
 include "."/comment
 include "."/file
+include "."/search
 
 doAssert execFeudC("script tests/crash1.ini").contains("globals.nim"), "Failed crash1 test"
 

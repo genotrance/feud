@@ -80,7 +80,7 @@ close X                - close buffer similar to switching
 closeAll               - close all open buffers
 ```
 
-Searching:
+Search & Replace:
 ```
 search string          - search for string
 search -r string       - search backwards for string
@@ -89,6 +89,9 @@ search -w word         - whole word search
 search -p str\ning     - posix search with escaped chars
 search -x re.*?gex     - basic regular expression search
 search -X re.*?gex     - full C++11 regex search
+
+replace srch repl      - replace srch with repl
+replace -a srch repl   - replace all instances of srch with repl
 ```
 
 Windows:

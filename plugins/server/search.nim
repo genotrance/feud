@@ -1,4 +1,4 @@
-import os, strutils
+import os, strformat, strutils
 
 import "../.."/src/pluginapi
 
@@ -10,21 +10,27 @@ type
     posix: bool
     regex: bool
     cppregex: bool
+    found: bool
 
 proc unhighlight(plg: var Plugin) {.feudCallback.} =
-  let
+  var
+    search = getCtxData[Search](plg)
     length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
   discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
   discard plg.ctx.msg(plg.ctx, SCI_INDICATORCLEARRANGE, 0, length.toPtr)
+  search.found = false
 
 proc search(plg: var Plugin) {.feudCallback.} =
   var
     search = getCtxData[Search](plg)
     reverse = false
+    tpos = false
+    found = search.found
 
   if plg.ctx.cmdParam.len != 0:
     var
       params = plg.ctx.cmdParam[0].strip().parseCmdLine()
+
     if "-r" in params:
       reverse = true
       params.delete(params.find("-r"))
@@ -43,9 +49,12 @@ proc search(plg: var Plugin) {.feudCallback.} =
             search.wholeword = true
           of "-p":
             search.posix = true
+          of "-t":
+            tpos = true
           of "-x":
             search.regex = true
           of "-X":
+            search.regex = true
             search.cppregex = true
           else:
             if search.needle.len == 0:
@@ -61,12 +70,16 @@ proc search(plg: var Plugin) {.feudCallback.} =
 
     let
       curpos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
-    if not reverse:
-      discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
-      discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, curpos)
-    else:
-      discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, curpos)
-      discard plg.ctx.msg(plg.ctx, SCI_SETTARGETEND, 0)
+      curstart = plg.ctx.msg(plg.ctx, SCI_GETTARGETSTART)
+      curend = plg.ctx.msg(plg.ctx, SCI_GETTARGETEND)
+
+    if not tpos:
+      if not reverse:
+        discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
+        discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, curpos)
+      else:
+        discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, curpos)
+        discard plg.ctx.msg(plg.ctx, SCI_SETTARGETEND, 0)
 
     var
       flags = 0
@@ -85,7 +98,7 @@ proc search(plg: var Plugin) {.feudCallback.} =
 
     var
       pos = plg.ctx.msg(plg.ctx, SCI_SEARCHINTARGET, search.needle.len, search.needle.cstring)
-    if pos == curpos and not reverse:
+    if pos == curpos and not reverse and found and pos == curstart and pos+search.needle.len == curend:
       discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
       discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, curpos+1)
       pos = plg.ctx.msg(plg.ctx, SCI_SEARCHINTARGET, search.needle.len, search.needle.cstring)
@@ -95,6 +108,7 @@ proc search(plg: var Plugin) {.feudCallback.} =
       discard plg.ctx.handleCommand(plg.ctx, "runHook preSearchHighlight")
       discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
       discard plg.ctx.msg(plg.ctx, SCI_INDICATORFILLRANGE, pos, search.needle.len.toPtr)
+      search.found = true
   else:
     discard plg.ctx.handleCommand(plg.ctx, "togglePopup search")
 
@@ -125,6 +139,60 @@ proc highlight(plg: var Plugin) {.feudCallback.} =
       discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
       for match in matches:
         discard plg.ctx.msg(plg.ctx, SCI_INDICATORFILLRANGE, match, length.toPtr)
+
+proc replace(plg: var Plugin) {.feudCallback.} =
+  if plg.ctx.cmdParam.len != 0:
+    var
+      params = plg.ctx.cmdParam[0].strip().parseCmdLine()
+      sparams: seq[string]
+      srch: string
+      repl: string
+      all = false
+      data: cstring
+
+    for param in params:
+      if param.len != 0:
+        if param[0] != '-' and srch.len != 0:
+          repl = param
+        elif param == "-a":
+          all = true
+        else:
+          sparams.add param
+          if param[0] != '-':
+            srch = param
+
+    if sparams.len != 0 and repl.len != 0:
+      var
+        tlast = -1
+        count = 0
+      discard plg.ctx.msg(plg.ctx, SCI_BEGINUNDOACTION)
+      defer:
+        discard plg.ctx.msg(plg.ctx, SCI_ENDUNDOACTION)
+      while true:
+        plg.ctx.cmdParam = sparams
+        if count != 0:
+          plg.ctx.cmdParam.add "-t"
+
+        plg.search()
+
+        let
+          tstart = plg.ctx.msg(plg.ctx, SCI_GETTARGETSTART)
+          tend = plg.ctx.msg(plg.ctx, SCI_GETTARGETEND)
+        if tstart < tend and tstart != tlast:
+          discard plg.ctx.msg(plg.ctx, SCI_REPLACETARGET, repl.len, repl.cstring)
+          tlast = tstart
+          count += 1
+        else:
+          break
+
+        if not all:
+          break
+
+        discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
+        discard plg.ctx.msg(plg.ctx, SCI_SETTARGETSTART, tend)
+
+      if count != 0:
+        plg.ctx.notify(plg.ctx, &"Replaced {$count} instances of '{srch}' with '{repl}'")
 
 feudPluginDepends(["config"])
 
