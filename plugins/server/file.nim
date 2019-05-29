@@ -12,6 +12,7 @@ type
     cursor: int
     firstLine: int
     syncTime: Time
+    modified: bool
     windows: HashSet[int]
 
   Docs = ref object
@@ -526,6 +527,27 @@ proc reloadIfChanged(plg: var Plugin) {.feudCallback.} =
     else:
       plg.ctx.notify(plg.ctx, &"File '{doc.path.extractFilename()}' with unsaved modifications changed behind the scenes")
 
+proc checkIfAnyModified(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+
+  plg.ctx.cmdParam = @[]
+  for i in 1 .. docs.doclist.len-1:
+    if docs.doclist[i].modified:
+      plg.ctx.cmdParam = @["Modified"]
+      break
+
+proc updateModified(plg: var Plugin) {.feudCallback.} =
+  var
+    docs = plg.getDocs()
+    docid = plg.getDocId()
+    doc = docs.doclist[docid]
+
+  if plg.ctx.msg(plg.ctx, SCI_GETMODIFY) == 0:
+    doc.modified = false
+  else:
+    doc.modified = true
+
 proc cd(plg: var Plugin) {.feudCallback.} =
   var
     docs = plg.getDocs()
@@ -584,3 +606,4 @@ feudPluginLoad:
   discard plg.ctx.handleCommand(plg.ctx, "hook onWindowActivate reloadIfChanged")
   discard plg.ctx.handleCommand(plg.ctx, "hook postFileSwitch reloadIfChanged")
   discard plg.ctx.handleCommand(plg.ctx, "hook postNewWindow open 0")
+  discard plg.ctx.handleCommand(plg.ctx, "hook onWindowSavePoint updateModified")
