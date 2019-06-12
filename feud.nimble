@@ -41,6 +41,10 @@ task clean, "Clean all":
   rmFile "feudc" & exe
   cleandllTask()
 
+proc echoExec(cmd: string) =
+  echo cmd
+  exec cmd
+
 proc stripDlls(path: string) =
   for file in listFiles(path):
     if dll in file:
@@ -50,7 +54,7 @@ proc buildDlls(path: string) =
   for file in listFiles(path):
     if file[^4 .. ^1] == ".nim":
       echo "Building " & file
-      exec "nim c --app:lib " & flags & " " & file
+      echoExec "nim c --app:lib " & flags & " " & file
 
 proc execDlls(task: proc(path: string)) =
   for dir in ["plugins", "plugins/server", "plugins/client"]:
@@ -62,11 +66,11 @@ task dll, "Build dlls":
     execDlls(stripDlls)
 
 task bin, "Build binaries":
-  exec "nim c " & flags & " feudc"
-  exec "nim c " & flags & " feud"
+  echoExec "nim c " & flags & " feudc"
+  echoExec "nim c " & flags & " feud"
   if "debug" notin flags:
-    exec "strip -s feudc" & exe
-    exec "strip -s feud" & exe
+    echoExec "strip -s feudc" & exe
+    echoExec "strip -s feud" & exe
 
 task release, "Release build":
   dllTask()
@@ -85,4 +89,4 @@ task dbin, "Debug binaries":
   binTask()
 
 task test, "Tester":
-  exec "nim tests/test.nims"
+  echoExec "nim tests/test.nims"

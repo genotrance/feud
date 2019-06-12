@@ -1,18 +1,18 @@
-import os, osproc, strformat
+import os, osproc, strformat, strutils
 
 import "../../src"/pluginapi
 
-proc exec(plg: var Plugin) {.feudCallback.} =
+proc exec(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
-    cmd =
+    command =
       when defined(Windows):
-        "cmd /c"
+        "cmd /c "
       else:
         ""
 
-  for param in plg.getParam():
+  if cmd.params.len != 0:
     let
-      (output, exitCode) = execCmdEx(param)
+      (output, exitCode) = execCmdEx(command & cmd.params.join(" "))
 
     plg.ctx.notify(plg.ctx, &"{output}Returned: {$exitCode}")
 

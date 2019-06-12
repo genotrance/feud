@@ -63,7 +63,7 @@ proc monitorRemote(tparam: tuple[premote: ptr Remote, listen, dial: string]) {.t
         else:
           discard tparam.premote[].sendBuf.popFirst()
 
-    sleep(100)
+    sleep(10)
 
     withLock tparam.premote[].lock:
       run = tparam.premote[].run
@@ -75,7 +75,7 @@ proc monitorRemote(tparam: tuple[premote: ptr Remote, listen, dial: string]) {.t
 
   discard socket.nng_close()
 
-proc stopRemote(plg: var Plugin) {.feudCallback.} =
+proc stopRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   if plg.pluginData.isNil:
     return
 
@@ -95,8 +95,8 @@ proc stopRemote(plg: var Plugin) {.feudCallback.} =
 
   plg.pluginData = nil
 
-proc initRemote(plg: var Plugin) {.feudCallback.} =
-  plg.stopRemote()
+proc initRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  plg.stopRemote(cmd)
 
   var
     premote = newShared[Remote]()
@@ -109,67 +109,67 @@ proc initRemote(plg: var Plugin) {.feudCallback.} =
   premote[].recvBuf = initDeque[string]()
   premote[].sendBuf = initDeque[string]()
 
-  if plg.ctx.cmdParam.len == 0:
+  if cmd.params.len == 0:
     if premoteCtx[].listen.len == 0:
       premoteCtx[].listen = "ipc:///tmp/feud"
   else:
-    let
-      (cmd, val) = plg.ctx.cmdParam[0].splitCmd()
-    if val.len != 0:
-      if cmd == "listen":
-        premoteCtx[].listen = val
-      elif cmd == "dial":
-        premoteCtx[].dial = val
+    if cmd.params.len == 2:
+      if cmd.params[0] == "listen":
+        premoteCtx[].listen = cmd.params[1]
+      elif cmd.params[0] == "dial":
+        premoteCtx[].dial = cmd.params[1]
+      else:
+        cmd.failed = true
+        plg.ctx.notify(plg.ctx, "Bad syntax for `initRemote()` - expect listen/dial")
+    else:
+      cmd.failed = true
+      plg.ctx.notify(plg.ctx, "Bad syntax for `initRemote()`")
 
-  createThread(premoteCtx.thread, monitorRemote, (premote, premoteCtx[].listen, premoteCtx[].dial))
+  if not cmd.failed:
+    createThread(premoteCtx.thread, monitorRemote, (premote, premoteCtx[].listen, premoteCtx[].dial))
 
-  if premoteCtx[].listen.len != 0:
-    plg.ctx.notify(plg.ctx, "Started remote plugin at " & premoteCtx[].listen)
+    if premoteCtx[].listen.len != 0:
+      plg.ctx.notify(plg.ctx, "Started remote plugin at " & premoteCtx[].listen)
 
-proc restartRemote(plg: var Plugin) {.feudCallback.} =
-  plg.initRemote()
+proc restartRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  plg.initRemote(cmd)
 
-proc readRemote(plg: var Plugin) =
+proc readRemote(plg: var Plugin): seq[string] =
   if plg.pluginData.isNil:
     return
 
   var
     premote = plg.getRemote()
 
-  plg.ctx.cmdParam = @[]
   withLock premote[].lock:
     for i in premote[].recvBuf.items:
-      plg.ctx.cmdParam.add $i
+      result.add $i
 
     premote[].recvBuf.clear()
 
-proc sendRemote(plg: var Plugin) {.feudCallback.} =
+proc sendRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   if plg.pluginData.isNil:
     return
 
   var
     premote = plg.getRemote()
 
-  if plg.ctx.cmdParam.len != 0:
-    withLock premote[].lock:
-      premote[].sendBuf.addLast plg.ctx.cmdParam[0]
+  withLock premote[].lock:
+    premote[].sendBuf.addLast cmd.params.join(" ")
 
-    plg.ctx.cmdParam = @[]
-
-proc getAck(plg: var Plugin) {.feudCallback.} =
+proc getAck(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   if plg.pluginData.isNil:
     return
 
   var
     premote = plg.getRemote()
 
-  plg.ctx.cmdParam = @[]
   withLock premote[].lock:
     if premote[].ack > 0:
       premote[].ack -= 1
-      plg.ctx.cmdParam = @["ack"]
+      cmd.returned = @["ack"]
 
-proc notifyClient(plg: var Plugin) =
+proc notifyClient(plg: var Plugin, cmd: var CmdData) =
   if plg.pluginData.isNil:
     return
 
@@ -180,7 +180,7 @@ proc notifyClient(plg: var Plugin) =
     mode = plg.ctx.pmonitor[].path
 
   if mode == "server":
-    plg.sendRemote()
+    plg.sendRemote(cmd)
 
 feudPluginLoad()
 
@@ -190,20 +190,23 @@ feudPluginTick:
 
   var
     premote = plg.getRemote()
+    data = plg.readRemote()
     mode = ""
 
   withLock plg.ctx.pmonitor[].lock:
     mode = plg.ctx.pmonitor[].path
 
-  plg.readRemote()
-  if plg.ctx.cmdParam.len != 0:
+  if data.len != 0:
     if mode == "server":
-      for i in plg.ctx.cmdParam:
-        discard plg.ctx.handleCommand(plg.ctx, i)
-        plg.ctx.cmdParam = @["ack"]
-        plg.sendRemote()
+      for i in data:
+        var
+          cmd = newCmdData(i)
+        plg.ctx.handleCommand(plg.ctx, cmd)
+
+        cmd = newCmdData("ack")
+        plg.sendRemote(cmd)
     else:
-      for i in plg.ctx.cmdParam:
+      for i in data:
         if i == "ack":
           withLock premote[].lock:
             premote[].ack += 1
@@ -211,7 +214,7 @@ feudPluginTick:
           echo i
 
 feudPluginNotify:
-  plg.notifyClient()
+  plg.notifyClient(cmd)
 
 feudPluginUnload:
-  plg.stopRemote()
+  plg.stopRemote(cmd)

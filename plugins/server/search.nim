@@ -12,7 +12,7 @@ type
     cppregex: bool
     found: bool
 
-proc unhighlight(plg: var Plugin) {.feudCallback.} =
+proc unhighlight(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     search = getCtxData[Search](plg)
     length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
@@ -20,26 +20,24 @@ proc unhighlight(plg: var Plugin) {.feudCallback.} =
   discard plg.ctx.msg(plg.ctx, SCI_INDICATORCLEARRANGE, 0, length.toPtr)
   search.found = false
 
-proc search(plg: var Plugin) {.feudCallback.} =
+proc search(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     search = getCtxData[Search](plg)
     reverse = false
     tpos = false
     found = search.found
+    ccmd: CmdData
 
-  if plg.ctx.cmdParam.len != 0:
-    var
-      params = plg.ctx.cmdParam[0].strip().parseCmdLine()
-
-    if "-r" in params:
+  if cmd.params.len != 0:
+    if "-r" in cmd.params:
       reverse = true
-      params.delete(params.find("-r"))
+      cmd.params.delete(cmd.params.find("-r"))
 
-    if params.len != 0:
+    if cmd.params.len != 0:
       freeCtxData[Search](plg)
       search = getCtxData[Search](plg)
 
-      for param in params:
+      for param in cmd.params:
         let
           param = param.strip()
         case param:
@@ -66,7 +64,7 @@ proc search(plg: var Plugin) {.feudCallback.} =
     search.needle = plg.getSelection()
 
   if search.needle.len != 0:
-    plg.unhighlight()
+    plg.unhighlight(cmd)
 
     let
       curpos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
@@ -105,19 +103,21 @@ proc search(plg: var Plugin) {.feudCallback.} =
 
     if pos != -1:
       discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, pos)
-      discard plg.ctx.handleCommand(plg.ctx, "runHook preSearchHighlight")
+      ccmd = newCmdData("runHook preSearchHighlight")
+      plg.ctx.handleCommand(plg.ctx, ccmd)
       discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
       discard plg.ctx.msg(plg.ctx, SCI_INDICATORFILLRANGE, pos, search.needle.len.toPtr)
       search.found = true
   else:
-    discard plg.ctx.handleCommand(plg.ctx, "togglePopup search")
+    ccmd = newCmdData("togglePopup search")
+    plg.ctx.handleCommand(plg.ctx, ccmd)
 
-proc highlight(plg: var Plugin) {.feudCallback.} =
+proc highlight(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   let
     search = plg.getSelection()
     length = search.len
 
-  plg.unhighlight()
+  plg.unhighlight(cmd)
   if length != 0:
     freeCtxData[Search](plg)
     getCtxData[Search](plg).needle = search
@@ -125,6 +125,7 @@ proc highlight(plg: var Plugin) {.feudCallback.} =
     var
       matches: seq[int]
       pos = 0
+      ccmd: CmdData
     while pos != -1:
       discard plg.ctx.msg(plg.ctx, SCI_TARGETWHOLEDOCUMENT)
       discard plg.ctx.msg(plg.ctx, SCI_SETSEARCHFLAGS, SCFIND_MATCHCASE)
@@ -135,22 +136,23 @@ proc highlight(plg: var Plugin) {.feudCallback.} =
         pos += 1
 
     if matches.len != 0:
-      discard plg.ctx.handleCommand(plg.ctx, "runHook preSearchHighlight")
+      ccmd = newCmdData("runHook preSearchHighlight")
+      plg.ctx.handleCommand(plg.ctx, ccmd)
       discard plg.ctx.msg(plg.ctx, SCI_SETINDICATORVALUE, 0)
       for match in matches:
         discard plg.ctx.msg(plg.ctx, SCI_INDICATORFILLRANGE, match, length.toPtr)
 
-proc replace(plg: var Plugin) {.feudCallback.} =
-  if plg.ctx.cmdParam.len != 0:
+proc replace(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  if cmd.params.len != 0:
     var
-      params = plg.ctx.cmdParam[0].strip().parseCmdLine()
       sparams: seq[string]
       srch: string
       repl: string
       all = false
       data: cstring
+      ccmd: CmdData
 
-    for param in params:
+    for param in cmd.params:
       if param.len != 0:
         if param[0] != '-' and srch.len != 0:
           repl = param
@@ -161,6 +163,8 @@ proc replace(plg: var Plugin) {.feudCallback.} =
           if param[0] != '-':
             srch = param
 
+    echo srch
+    echo repl
     if sparams.len != 0 and repl.len != 0:
       var
         tlast = -1
@@ -169,11 +173,12 @@ proc replace(plg: var Plugin) {.feudCallback.} =
       defer:
         discard plg.ctx.msg(plg.ctx, SCI_ENDUNDOACTION)
       while true:
-        plg.ctx.cmdParam = sparams
+        ccmd = new(CmdData)
+        ccmd.params = sparams
         if count != 0:
-          plg.ctx.cmdParam.add "-t"
+          ccmd.params.add "-t"
 
-        plg.search()
+        plg.search(ccmd)
 
         let
           tstart = plg.ctx.msg(plg.ctx, SCI_GETTARGETSTART)
@@ -197,4 +202,6 @@ proc replace(plg: var Plugin) {.feudCallback.} =
 feudPluginDepends(["config"])
 
 feudPluginLoad:
-  discard plg.ctx.handleCommand(plg.ctx, "hook onWindowSelection highlight")
+  var
+    ccmd = newCmdData("hook onWindowSelection highlight")
+  plg.ctx.handleCommand(plg.ctx, ccmd)

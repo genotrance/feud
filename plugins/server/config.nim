@@ -36,16 +36,19 @@ proc execConfig(plg: var Plugin) =
   if config.commands.len != 0:
     var
       done: seq[int] = @[]
+      cmd: CmdData
 
     for i in 0 .. config.commands.len-1:
-      if plg.ctx.handleCommand(plg.ctx, config.commands[i]):
+      cmd = newCmdData(config.commands[i])
+      plg.ctx.handleCommand(plg.ctx, cmd)
+      if not cmd.failed:
         plg.ctx.notify(plg.ctx, config.commands[i])
         done.add i
 
     for i in countdown(done.len-1, 0):
       config.commands.delete done[i]
 
-proc config(plg: var Plugin) {.feudCallback.} =
+proc config(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     config = plg.getConfig()
 
@@ -55,85 +58,95 @@ proc config(plg: var Plugin) {.feudCallback.} =
 
   plg.loadConfigFile()
 
-proc hook(plg: var Plugin) {.feudCallback.} =
+proc hook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     config = plg.getConfig()
 
-  for param in plg.getParam():
+  if cmd.params.len > 1:
     let
-      (hname, hval) = param.splitCmd()
+      hname = cmd.params[0]
+      hval = cmd.params[1 .. ^1].join(" ")
+    if config.hooks.hasKey(hname):
+      if hval notin config.hooks[hname]:
+        config.hooks[hname].add hval
+    else:
+      config.hooks[hname] = @[hval]
+  elif cmd.params.len == 1:
+    let
+      hname = cmd.params[0]
+    if config.hooks.hasKey(hname):
+      var
+        outp = ""
+      for hval in config.hooks[hname]:
+        outp &= hval & ", "
+      if outp.len > 2:
+        plg.ctx.notify(plg.ctx, hname & ": " & outp[0 .. ^3])
+  elif cmd.params.len == 0:
+    for key in config.hooks.keys:
+      var
+        ccmd = newCmdData("hook " & key)
+      plg.ctx.handleCommand(plg.ctx, ccmd)
 
-    if hname.len != 0 and hval.len != 0:
-      if config.hooks.hasKey(hname):
-        if hval notin config.hooks[hname]:
-          config.hooks[hname].add hval
-      else:
-        config.hooks[hname] = @[hval]
-
-proc runHook(plg: var Plugin) {.feudCallback.} =
+proc runHook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     config = plg.getConfig()
 
-  for param in plg.getParam():
+  if cmd.params.len != 0:
     let
-      (hook, opts) = param.splitCmd()
+      hook = cmd.params[0]
     if config.hooks.hasKey(hook):
-      for cmd in config.hooks[hook]:
-        if opts.len != 0:
-          discard plg.ctx.handleCommand(plg.ctx, &"{cmd} {opts}")
-        else:
-          discard plg.ctx.handleCommand(plg.ctx, cmd)
+      for command in config.hooks[hook]:
+        var
+          cmd = newCmdData(
+            if cmd.params.len > 1:
+              &"""{command} {cmd.params[1 .. ^1].join(" ")}"""
+            else:
+              command
+          )
+        plg.ctx.handleCommand(plg.ctx, cmd)
 
-proc delHook(plg: var Plugin) {.feudCallback.} =
+proc delHook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     config = plg.getConfig()
 
-  for param in plg.getParam():
-    if config.hooks.hasKey(param):
-      config.hooks.del(param)
+  if cmd.params.len == 1:
+    if config.hooks.hasKey(cmd.params[0]):
+      config.hooks.del(cmd.params[0])
 
-proc script(plg: var Plugin) {.feudCallback.} =
-  for params in plg.getParam():
-    let
-      params = params.split(" ")
-    for param in params:
-      let
-        param = param.strip()
-      if param.len != 0 and param.fileExists():
-        for line in param.readFile().splitLines():
-          let
-            sline = line.strip()
-          if sline.len != 0 and sline[0] notin ['#', ';']:
-            discard plg.ctx.handleCommand(plg.ctx, sline)
-            plg.ctx.notify(plg.ctx, sline)
+proc script(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  for param in cmd.params:
+    if param.fileExists():
+      for line in param.readFile().splitLines():
+        let
+          sline = line.strip()
+        if sline.len != 0 and sline[0] notin ['#', ';']:
+          var
+            cmd = newCmdData(sline)
+          plg.ctx.handleCommand(plg.ctx, cmd)
+          plg.ctx.notify(plg.ctx, sline)
 
-proc get(plg: var Plugin) {.feudCallback.} =
-  if plg.ctx.cmdParam.len != 0:
+proc get(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  if cmd.params.len != 0:
     var
       config = plg.getConfig()
-      name = plg.ctx.cmdParam[0]
+      name = cmd.params[0]
 
-    if name.len != 0 and config.settings.hasKey(name):
-      plg.ctx.cmdParam = @[config.settings[name]]
+    if config.settings.hasKey(name):
+      cmd.returned = @[config.settings[name]]
+
+proc set(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  if cmd.params.len > 0:
+    var
+      config = plg.getConfig()
+      sname = cmd.params[0]
+    if cmd.params.len > 1:
+      config.settings[sname] = cmd.params[1 .. ^1].join(" ")
     else:
-      plg.ctx.cmdParam = @[]
-
-proc set(plg: var Plugin) {.feudCallback.} =
-  for param in plg.getParam():
-    let
-      (sname, sval) = param.splitCmd()
-
-    if sname.len != 0:
-      var
-        config = plg.getConfig()
-      if sval.len != 0:
-        config.settings[sname] = sval
-      else:
-        if config.settings.hasKey(sname):
-          config.settings.del(sname)
+      if config.settings.hasKey(sname):
+        config.settings.del(sname)
 
 feudPluginLoad:
-  plg.config()
+  plg.config(cmd)
 
 feudPluginTick:
   if plg.ctx.tick == 0:

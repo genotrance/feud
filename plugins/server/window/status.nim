@@ -27,42 +27,42 @@ proc setupStatus(plg: var Plugin, hwnd: HWND) =
 
     SendMessage(hwnd, SB_SETPARTS, cast[WPARAM](count), cast[LPARAM](addr intsplit))
 
-proc setStatusBarHelper(plg: var Plugin, exec = false) =
+proc setStatusBarHelper(plg: var Plugin, cmd: var CmdData, exec = false) =
   var
     windows = plg.getWindows()
     status = windows.editors[windows.current].status
 
-  for param in plg.getParam():
+  if cmd.params.len > 1:
     var
-      (idstr, cmd) = param.splitCmd()
+      idstr = cmd.params[0]
+      command = cmd.params[1 .. ^1].join(" ")
       id: int32
 
-    if idstr.len != 0:
-      try:
-        id = idstr.parseInt().int32
-      except:
-        continue
+    try:
+      id = idstr.parseInt().int32
+    except:
+      return
 
-      if exec:
-        cmd = plg.getCbResult(cmd)
+    if exec:
+      command = plg.getCbResult(command)
 
-      SendMessage(status, SB_SETTEXTA, cast[WPARAM](id), cast[LPARAM](cmd.cstring))
+    SendMessage(status, SB_SETTEXTA, cast[WPARAM](id), cast[LPARAM](command.cstring))
 
-proc setStatusBar(plg: var Plugin) {.feudCallback.} =
-  plg.setStatusBarHelper()
+proc setStatusBar(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  plg.setStatusBarHelper(cmd)
 
-proc setStatusBarCmd(plg: var Plugin) {.feudCallback.} =
-  plg.setStatusBarHelper(exec = true)
+proc setStatusBarCmd(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  plg.setStatusBarHelper(cmd, exec = true)
 
-proc getPosition(plg: var Plugin) {.feudCallback.} =
+proc getPosition(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   let
     pos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
     line = plg.ctx.msg(plg.ctx, SCI_LINEFROMPOSITION, pos) + 1
     col = plg.ctx.msg(plg.ctx, SCI_GETCOLUMN, pos) + 1
 
-  plg.ctx.cmdParam = @[strformat.`&`("R{line} : C{col}")]
+  cmd.returned.add strformat.`&`("R{line} : C{col}")
 
-proc getDocSize(plg: var Plugin) {.feudCallback.} =
+proc getDocSize(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
     lstr = ""
@@ -76,24 +76,24 @@ proc getDocSize(plg: var Plugin) {.feudCallback.} =
   else:
     lstr = strformat.`&`("{(length / 1024 / 1024 / 1024):.2f} GB")
 
-  plg.ctx.cmdParam = @[lstr]
+  cmd.returned.add lstr
 
-proc getRatio(plg: var Plugin) {.feudCallback.} =
+proc getRatio(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   let
     pos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
     length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
 
-  plg.ctx.cmdParam = @[
+  cmd.returned.add(
     if length != 0:
       strformat.`&`("{(pos / length) * 100:3.2f}%")
     else:
       ""
-  ]
+  )
 
-proc getModified(plg: var Plugin) {.feudCallback.} =
-  plg.ctx.cmdParam = @[
+proc getModified(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  cmd.returned.add(
     if plg.ctx.msg(plg.ctx, SCI_GETMODIFY) == 0:
       ""
     else:
       "***"
-  ]
+  )

@@ -10,30 +10,33 @@ var
 
 gCh.open()
 
-proc handleCommand(ctx: var Ctx, command: string): bool =
-  let
-    (cmd, val) = command.splitCmd()
+proc handleCommand(ctx: var Ctx, cmd: var CmdData) =
+  if cmd.params.len != 0:
+    if cmd.params[0] == "runHook":
+      return
 
-  if cmd == "runHook":
-    return true
-
-  ctx.cmdParam = if val.len != 0: @[val] else: @[]
-  if not ctx.handlePluginCommand(cmd):
-    ctx.cmdParam = @[command]
-    discard ctx.handlePluginCommand("sendRemote")
+    ctx.handlePluginCommand(cmd)
+    if cmd.failed:
+      cmd.failed = false
+      cmd.params = @["sendRemote"] & cmd.params
+      ctx.handlePluginCommand(cmd)
+  else:
+    cmd.failed = true
 
 proc handleAck(ctx: var Ctx, command: string) =
-  let
-    (cmd, val) = command.splitCmd()
+  var
+    (_, val) = command.splitCmd()
     valI = parseInt(val)
+    cmd = newCmdData("getAck")
   for i in 0 .. valI-1:
+    cmd.returned = @[]
     for j in 0 .. 100:
-      discard handleCommand(ctx, "getAck")
-      if ctx.cmdParam.len != 0:
+      handleCommand(ctx, cmd)
+      if cmd.returned.len != 0:
         break
       ctx.syncPlugins()
       sleep(100)
-    if ctx.cmdParam.len == 0:
+    if cmd.returned.len == 0:
       echo "Not all commands ack'd"
       quit(1)
 
@@ -50,7 +53,9 @@ proc messageLoop(ctx: var Ctx) =
       elif command.startsWith("ack "):
         ctx.handleAck(command)
       else:
-        discard handleCommand(ctx, command)
+        var
+          cmd = newCmdData(command)
+        handleCommand(ctx, cmd)
 
     ctx.syncPlugins()
 
@@ -101,7 +106,9 @@ proc main(
   while not ctx.ready:
     ctx.syncPlugins()
 
-  discard handleCommand(ctx, &"initRemote dial {server}")
+  var
+    cmd = newCmdData(&"initRemote dial {server}")
+  handleCommand(ctx, cmd)
 
   if command.len == 0:
     createThread(thread, initCmd)

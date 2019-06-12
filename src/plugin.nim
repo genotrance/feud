@@ -127,10 +127,14 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
       ctx.notify(ctx, &"Plugin '{dep}' depends on '{name}' and might crash")
 
     if not ctx.plugins[name].onUnload.isNil:
+      var
+        cmd = new(CmdData)
       tryCatch:
-        ctx.plugins[name].onUnload(ctx.plugins[name])
+        ctx.plugins[name].onUnload(ctx.plugins[name], cmd)
       if not ret:
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{name}' crashed in 'feudPluginUnload()'")
+      if cmd.failed:
+        ctx.notify(ctx, &"Plugin '{name}' failed in 'feudPluginUnload()'")
 
     ctx.plugins[name].handle.unloadLib()
     for dep in ctx.plugins[name].depends:
@@ -141,26 +145,22 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
 
     ctx.notify(ctx, &"Plugin '{name}' unloaded")
 
-proc notifyPlugins*(ctx: var Ctx) =
-  var
-    msg: string
-  deepCopy(msg, ctx.cmdParam[0])
-
+proc notifyPlugins*(ctx: var Ctx, cmd: var CmdData) =
   for pl in ctx.plugins.keys():
     var
       plg = ctx.plugins[pl]
+    cmd.failed = false
     if not plg.onNotify.isNil:
       tryCatch:
-        ctx.cmdParam = @[msg]
-        plg.onNotify(plg)
+        plg.onNotify(plg, cmd)
       if not ret:
         plg.onNotify = nil
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginNotify()'")
         ctx.unloadPlugin(plg.name)
+      if cmd.failed:
+        ctx.notify(ctx, &"Plugin '{plg.name}' failed in 'feudPluginNotify()'")
 
-  echo msg
-
-  ctx.cmdParam = @[]
+  echo cmd.params[0]
 
 proc initPlugins*(ctx: var Ctx, path: string) =
   ctx.plugins = newTable[string, Plugin]()
@@ -175,8 +175,10 @@ proc initPlugins*(ctx: var Ctx, path: string) =
   ctx.pmonitor[].processed.init()
 
   ctx.notify = proc(ctx: var Ctx, msg: string) =
-    ctx.cmdParam = @[msg]
-    ctx.notifyPlugins()
+    var
+      cmd = new(CmdData)
+    cmd.params.add msg
+    ctx.notifyPlugins(cmd)
 
   createThread(gThread, monitorPlugins, ctx.pmonitor)
 
@@ -184,16 +186,22 @@ proc initPlugin(plg: var Plugin) =
   if plg.onLoad.isNil:
     var
       once = false
+      cmd: CmdData
 
     if plg.onDepends.isNil:
       once = true
       plg.onDepends = plg.handle.symAddr("onDepends").toCallback()
 
       if not plg.onDepends.isNil:
+        cmd = new(CmdData)
         tryCatch:
-          plg.onDepends(plg)
+          plg.onDepends(plg, cmd)
         if not ret:
           plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginDepends()'")
+          plg.ctx.unloadPlugin(plg.name)
+          return
+        if cmd.failed:
+          plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' failed in 'feudPluginDepends()'")
           plg.ctx.unloadPlugin(plg.name)
           return
 
@@ -210,10 +218,15 @@ proc initPlugin(plg: var Plugin) =
       plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' missing 'feudPluginLoad()'")
       plg.ctx.unloadPlugin(plg.name)
     else:
+      cmd = new(CmdData)
       tryCatch:
-        plg.onLoad(plg)
+        plg.onLoad(plg, cmd)
       if not ret:
         plg.ctx.notify(plg.ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginLoad()'")
+        plg.ctx.unloadPlugin(plg.name)
+        return
+      if cmd.failed:
+        plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' failed in 'feudPluginLoad()'")
         plg.ctx.unloadPlugin(plg.name)
         return
 
@@ -264,10 +277,11 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       ctx.notify(ctx, &"Plugin '{plg.name}' dll copy failed")
       return
 
+  echo plg.path
   plg.handle = plg.path.loadLib()
   plg.cindex.init()
   plg.dependents.init()
-  plg.callbacks = newTable[string, proc(plg: var Plugin)]()
+  plg.callbacks = newTable[string, proc(plg: var Plugin, cmd: var CmdData)]()
 
   if plg.handle.isNil:
     ctx.notify(ctx, &"Plugin '{plg.name}' failed to load")
@@ -315,16 +329,22 @@ proc tickPlugins(ctx: var Ctx) =
   for pl in ctx.plugins.keys():
     var
       plg = ctx.plugins[pl]
+      cmd = new(CmdData)
     if not plg.onTick.isNil:
       tryCatch:
-        plg.onTick(plg)
+        plg.onTick(plg, cmd)
       if not ret:
         ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in 'feudPluginTick()'")
         ctx.unloadPlugin(plg.name)
+      if cmd.failed:
+        ctx.notify(ctx, &"Plugin '{plg.name}' failed in 'feudPluginTick()'")
 
-proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
-  result = true
-  case cmd:
+proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
+  if cmd.params.len == 0:
+    cmd.failed = true
+    return
+
+  case cmd.params[0]:
     of "plist":
       var
         nf = ""
@@ -332,18 +352,20 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
         nf &= pl.extractFilename & " "
       ctx.notify(ctx, nf)
     of "preload", "pload":
-      if ctx.cmdParam.len != 0:
+      if cmd.params.len > 1:
         withLock ctx.pmonitor[].lock:
-          ctx.pmonitor[].processed.excl ctx.cmdParam[0]
+          for i in 1 .. cmd.params.len-1:
+            ctx.pmonitor[].processed.excl cmd.params[i]
       else:
         withLock ctx.pmonitor[].lock:
           ctx.pmonitor[].processed.clear()
     of "punload":
-      if ctx.cmdParam.len != 0:
-        if ctx.plugins.hasKey(ctx.cmdParam[0]):
-          ctx.unloadPlugin(ctx.cmdParam[0])
-        else:
-          ctx.notify(ctx, &"Plugin '{ctx.cmdParam[0]}' not found")
+      if cmd.params.len > 1:
+        for i in 1 .. cmd.params.len-1:
+          if ctx.plugins.hasKey(cmd.params[i]):
+            ctx.unloadPlugin(cmd.params[i])
+          else:
+            ctx.notify(ctx, &"Plugin '{cmd.params[i]}' not found")
       else:
         for pl in ctx.plugins.keys():
           ctx.unloadPlugin(pl)
@@ -360,22 +382,30 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: string): bool =
         ctx.pmonitor[].run = stopped
       ctx.notify(ctx, &"Plugin monitor exited")
     else:
-      result = false
+      cmd.failed = true
       for pl in ctx.plugins.keys():
         var
           plg = ctx.plugins[pl]
-        if cmd in plg.cindex:
-          result = true
+          ccmd = new(CmdData)
+        ccmd.params = cmd.params[1 .. ^1]
+        if cmd.params[0] in plg.cindex:
           tryCatch:
-            plg.callbacks[cmd](plg)
+            plg.callbacks[cmd.params[0]](plg, ccmd)
           if not ret:
-            ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in '{cmd}()'")
+            ctx.notify(ctx, getCurrentExceptionMsg() & &"Plugin '{plg.name}' crashed in '{cmd.params[0]}()'")
+          elif ccmd.failed:
+            ctx.notify(ctx, &"Plugin '{plg.name}' failed in '{cmd.params[0]}()'")
+          else:
+            cmd.returned &= ccmd.returned
+            cmd.failed = false
           break
 
 proc handleCli(ctx: var Ctx) =
   if ctx.cli.len != 0:
-    for cmd in ctx.cli:
-      discard ctx.handleCommand(ctx, cmd.strip())
+    for command in ctx.cli:
+      var
+        cmd = newCmdData(command)
+      ctx.handleCommand(ctx, cmd)
     ctx.cli = @[]
 
 proc handleReady(ctx: var Ctx) =
@@ -383,7 +413,9 @@ proc handleReady(ctx: var Ctx) =
     withLock ctx.pmonitor[].lock:
       if ctx.pmonitor[].ready:
         ctx.ready = true
-        discard ctx.handleCommand(ctx, "runHook onReady")
+        var
+          cmd = newCmdData("runHook onReady")
+        ctx.handleCommand(ctx, cmd)
         ctx.handleCli()
 
 proc syncPlugins*(ctx: var Ctx) =

@@ -31,17 +31,17 @@ proc getDocId(plg: var Plugin, winid = -1): int =
   result = plg.getCbIntResult(cmd, -1)
 
 proc setDocId(plg: var Plugin, docid: int) =
-  discard plg.ctx.handleCommand(plg.ctx, &"setDocId {docid}")
+  var
+    cmd = newCmdData(&"setDocId {docid}")
+  plg.ctx.handleCommand(plg.ctx, cmd)
 
-proc getDocPath(plg: var Plugin) {.feudCallback.} =
+proc getDocPath(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
     docid = plg.getDocId()
 
   if docid != -1:
-    plg.ctx.cmdParam = @[docs.doclist[docid].path]
-  else:
-    plg.ctx.cmdParam = @[]
+    cmd.returned.add docs.doclist[docid].path
 
 proc setCurrentDir(plg: var Plugin, dir: string) =
   var
@@ -130,6 +130,7 @@ proc switchDoc(plg: var Plugin, docid: int) =
     docs = plg.getDocs()
     currDoc = plg.getDocId()
     currWindow = plg.getCbIntResult("getCurrentWindow", -1)
+    cmd: CmdData
 
   if docid < 0 or docid > docs.doclist.len-1 or currWindow < 0 or currDoc < 0 or (docid == currDoc and docid != 0):
     return
@@ -147,12 +148,14 @@ proc switchDoc(plg: var Plugin, docid: int) =
 
   plg.setDocId(docid)
 
-  discard plg.ctx.handleCommand(plg.ctx, &"setTitle {docs.doclist[docid].path}")
+  cmd = newCmdData(&"setTitle {docs.doclist[docid].path}")
+  plg.ctx.handleCommand(plg.ctx, cmd)
 
   let
     lexer = plg.getCbResult(&"setLexer {docs.doclist[docid].path}")
   if lexer.len != 0:
-    discard plg.ctx.handleCommand(plg.ctx, &"setTheme {lexer}")
+    cmd = newCmdData(&"setTheme {lexer}")
+    plg.ctx.handleCommand(plg.ctx, cmd)
 
   if plg.getCbResult("get file:fileChdir") == "true":
     if docs.doclist[docid].path notin ["Notifications", "New document"]:
@@ -163,7 +166,8 @@ proc switchDoc(plg: var Plugin, docid: int) =
   if docid == 0:
     plg.gotoEnd()
 
-  discard plg.ctx.handleCommand(plg.ctx, "runHook postFileSwitch")
+  cmd = newCmdData("runHook postFileSwitch")
+  plg.ctx.handleCommand(plg.ctx, cmd)
 
 proc loadFileContents(plg: var Plugin, path: string) =
   if not fileExists(path):
@@ -187,9 +191,11 @@ proc loadFileContents(plg: var Plugin, path: string) =
   f.close()
 
   discard plg.ctx.msg(plg.ctx, SCI_SETSAVEPOINT)
-  discard plg.ctx.handleCommand(plg.ctx, "runHook postFileLoad")
+  var
+    cmd = newCmdData("runHook postFileLoad")
+  plg.ctx.handleCommand(plg.ctx, cmd)
 
-proc newDoc(plg: var Plugin) {.feudCallback.} =
+proc newDoc(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
     doc = new(Doc)
@@ -202,7 +208,7 @@ proc newDoc(plg: var Plugin) {.feudCallback.} =
 
   plg.switchDoc(docs.doclist.len-1)
 
-proc open(plg: var Plugin) {.feudCallback.} =
+proc open(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   proc getDirPat(path: string): tuple[dir, pat: string] =
     if "/" in path or "\\" in path:
       result.dir = path.parentDir()
@@ -216,12 +222,13 @@ proc open(plg: var Plugin) {.feudCallback.} =
   proc openRec(plg: var Plugin, path: string) =
     var
       (dir, pat) = path.getDirPat()
-    plg.ctx.cmdParam = @[]
+      cmd = new(CmdData)
     for d in dir.walkDirRec(yieldFilter={pcDir}):
       if ".git" notin d:
         if "*" in pat or "?" in pat or fileExists(d/pat):
-          plg.ctx.cmdParam.add d/pat
-    plg.open()
+          cmd.params.add d/pat
+    if cmd.params.len != 0:
+      plg.open(cmd)
 
   proc openFuzzy(plg: var Plugin, path: string) =
     var
@@ -229,7 +236,6 @@ proc open(plg: var Plugin) {.feudCallback.} =
       bestscore = 0
       bestmatch = ""
       score: cint = 0
-    plg.ctx.cmdParam = @[]
     for f in dir.walkDirRec():
       if ".git" notin f:
         if fuzzy_match(pat, f.extractFilename(), score):
@@ -239,26 +245,28 @@ proc open(plg: var Plugin) {.feudCallback.} =
     if bestmatch.len != 0:
       if " " in bestmatch or "\t" in bestmatch:
         bestmatch = '"' & bestmatch & '"'
-      discard plg.ctx.handleCommand(plg.ctx, &"togglePopup open {bestmatch}")
+      var
+        cmd = newCmdData(&"togglePopup open {bestmatch}")
+      plg.ctx.handleCommand(plg.ctx, cmd)
 
   var
     sel = plg.getSelection()
-    params = plg.getParam()
     selected = false
+    ccmd: CmdData
 
-  if params.len == 0 and sel.len != 0:
-    params.add sel
+  if cmd.params.len == 0 and sel.len != 0:
+    cmd.params.add sel
     selected = true
 
-  if params.len == 0:
-    discard plg.ctx.handleCommand(plg.ctx, "togglePopup open")
-
-  for param in params:
+  if cmd.params.len == 0:
+    ccmd = newCmdData("togglePopup open")
+    plg.ctx.handleCommand(plg.ctx, ccmd)
+  else:
     defer:
       selected = false
 
     var
-      paths = param.parseCmdLine()
+      paths = cmd.params
       recurse = false
       fuzzy = false
 
@@ -277,7 +285,8 @@ proc open(plg: var Plugin) {.feudCallback.} =
     let
       togOpen = "togglePopup open" & (if recurse: " -r" elif fuzzy: " -f" else: "")
     if paths.len == 0:
-      discard plg.ctx.handleCommand(plg.ctx, togOpen)
+      ccmd = newCmdData(togOpen)
+      plg.ctx.handleCommand(plg.ctx, ccmd)
 
     for path in paths:
       let
@@ -285,10 +294,11 @@ proc open(plg: var Plugin) {.feudCallback.} =
 
       if "*" in path or "?" in path:
         if not recurse:
-          plg.ctx.cmdParam = @[]
+          ccmd = new(CmdData)
           for spath in path.walkPattern():
-            plg.ctx.cmdParam.add spath.expandFilename()
-          plg.open()
+            ccmd.params.add spath.expandFilename()
+          if ccmd.params.len != 0:
+            plg.open(ccmd)
         else:
           plg.openRec(path)
       elif path.len != 0:
@@ -297,11 +307,12 @@ proc open(plg: var Plugin) {.feudCallback.} =
         if docid > -1:
           plg.switchDoc(docid)
         elif path.dirExists():
-          plg.ctx.cmdParam = @[]
+          ccmd = new(CmdData)
           for kind, file in path.walkDir():
             if kind == pcFile:
-              plg.ctx.cmdParam.add file.expandFilename()
-          plg.open()
+              ccmd.params.add file.expandFilename()
+          if ccmd.params.len != 0:
+            plg.open(ccmd)
         else:
           if not fileExists(path):
             if recurse:
@@ -310,7 +321,8 @@ proc open(plg: var Plugin) {.feudCallback.} =
               plg.openFuzzy(path)
             else:
               if selected:
-                discard plg.ctx.handleCommand(plg.ctx, togOpen)
+                ccmd = newCmdData(togOpen)
+                plg.ctx.handleCommand(plg.ctx, ccmd)
               else:
                 plg.ctx.notify(plg.ctx, &"File does not exist: {path}")
           else:
@@ -333,7 +345,7 @@ proc open(plg: var Plugin) {.feudCallback.} =
 
             discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, 0)
 
-proc save(plg: var Plugin) {.feudCallback.} =
+proc save(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
     currDoc = plg.getDocId()
@@ -344,6 +356,7 @@ proc save(plg: var Plugin) {.feudCallback.} =
 
     if doc.path == "New document":
       plg.ctx.notify(plg.ctx, &"Save new document using saveAs <fullpath>")
+      cmd.failed = true
       return
 
     discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 1.toPtr)
@@ -356,6 +369,7 @@ proc save(plg: var Plugin) {.feudCallback.} =
     try:
       var
         f = open(doc.path, fmWrite)
+        ccmd: CmdData
       f.write(data)
       f.close()
       plg.ctx.notify(plg.ctx, &"Saved {doc.path}")
@@ -363,14 +377,16 @@ proc save(plg: var Plugin) {.feudCallback.} =
       doc.syncTime = doc.path.getLastModificationTime()
 
       discard plg.ctx.msg(plg.ctx, SCI_SETSAVEPOINT)
-      discard plg.ctx.handleCommand(plg.ctx, &"setTitle {doc.path}")
+      ccmd = newCmdData(&"setTitle {doc.path}")
+      plg.ctx.handleCommand(plg.ctx, ccmd)
     except:
       plg.ctx.notify(plg.ctx, &"Failed to save {doc.path}")
+      cmd.failed = true
 
-proc saveAs(plg: var Plugin) {.feudCallback.} =
-  if plg.ctx.cmdParam.len != 0:
+proc saveAs(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  if cmd.params.len != 0:
     var
-      name = plg.ctx.cmdParam[0].strip()
+      name = cmd.params[0].strip()
       docs = plg.getDocs()
       doc = docs.doclist[plg.getDocId()]
 
@@ -380,9 +396,9 @@ proc saveAs(plg: var Plugin) {.feudCallback.} =
       if plg.getCbResult("get file:fileChdir") == "true":
         doc.path.parentDir().setCurrentDir()
 
-      plg.save()
+      plg.save(cmd)
 
-proc list(plg: var Plugin) {.feudCallback.} =
+proc list(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     lout = ""
     docs = plg.getDocs()
@@ -392,16 +408,13 @@ proc list(plg: var Plugin) {.feudCallback.} =
 
   plg.ctx.notify(plg.ctx, lout[0..^2])
 
-proc close(plg: var Plugin) {.feudCallback.} =
+proc close(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
-    params =
-      if plg.ctx.cmdParam.len != 0:
-        plg.getParam()
-      else:
-        @[""]
 
-  for param in params:
+  if cmd.params.len == 0:
+    cmd.params.add ""
+  for param in cmd.params:
     var
       docid = plg.findDocFromParam(param)
       currDoc = plg.getDocId()
@@ -420,24 +433,19 @@ proc close(plg: var Plugin) {.feudCallback.} =
         if docid < currDoc:
           plg.setDocId(currDoc-1)
 
-proc closeAll(plg: var Plugin) {.feudCallback.} =
+proc closeAll(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
 
   while docs.doclist.len != 1:
-    plg.ctx.cmdParam = @[$(docs.doclist.len-1)]
-    plg.close()
+    cmd.params.add $(docs.doclist.len-1)
+    plg.close(cmd)
 
-proc unload(plg: var Plugin) {.feudCallback.} =
+proc unload(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
-    params =
-      if plg.ctx.cmdParam.len != 0:
-        plg.getParam()
-      else:
-        @[]
 
-  for param in params:
+  for param in cmd.params:
     var
       winid: int
     try:
@@ -455,7 +463,7 @@ proc unload(plg: var Plugin) {.feudCallback.} =
 
         discard plg.ctx.msg(plg.ctx, SCI_SETDOCPOINTER, 0, nil, windowID=winid)
 
-proc next(plg: var Plugin) {.feudCallback.} =
+proc next(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
 
@@ -468,7 +476,7 @@ proc next(plg: var Plugin) {.feudCallback.} =
 
     plg.switchDoc(docid)
 
-proc prev(plg: var Plugin) {.feudCallback.} =
+proc prev(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
 
@@ -481,7 +489,7 @@ proc prev(plg: var Plugin) {.feudCallback.} =
 
     plg.switchDoc(docid)
 
-proc last(plg: var Plugin) {.feudCallback.} =
+proc last(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
 
@@ -492,7 +500,7 @@ proc last(plg: var Plugin) {.feudCallback.} =
 
   plg.switchDoc(last)
 
-proc reload(plg: var Plugin) {.feudCallback.} =
+proc reload(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
     docid = plg.getDocId()
@@ -505,17 +513,17 @@ proc reload(plg: var Plugin) {.feudCallback.} =
 
     plg.ctx.notify(plg.ctx, &"Reloaded {doc.path}")
 
-proc reloadAll(plg: var Plugin) {.feudCallback.} =
+proc reloadAll(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
 
-  plg.reload()
+  plg.reload(cmd)
   if docs.doclist.len != 2:
     for i in 0 .. docs.doclist.len-1:
-      plg.next()
-      plg.reload()
+      plg.next(cmd)
+      plg.reload(cmd)
 
-proc reloadIfChanged(plg: var Plugin) {.feudCallback.} =
+proc reloadIfChanged(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
     docid = plg.getDocId()
@@ -523,21 +531,21 @@ proc reloadIfChanged(plg: var Plugin) {.feudCallback.} =
 
   if doc.path.fileExists() and doc.syncTime < doc.path.getLastModificationTime():
     if plg.ctx.msg(plg.ctx, SCI_GETMODIFY) == 0:
-      plg.reload()
+      plg.reload(cmd)
     else:
       plg.ctx.notify(plg.ctx, &"File '{doc.path.extractFilename()}' with unsaved modifications changed behind the scenes")
 
-proc checkIfAnyModified(plg: var Plugin) {.feudCallback.} =
+proc checkIfAnyModified(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
 
-  plg.ctx.cmdParam = @[]
+  cmd.failed = true
   for i in 1 .. docs.doclist.len-1:
     if docs.doclist[i].modified:
-      plg.ctx.cmdParam = @["Modified"]
+      cmd.failed = false
       break
 
-proc updateModified(plg: var Plugin) {.feudCallback.} =
+proc updateModified(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
     docid = plg.getDocId()
@@ -548,14 +556,14 @@ proc updateModified(plg: var Plugin) {.feudCallback.} =
   else:
     doc.modified = true
 
-proc cd(plg: var Plugin) {.feudCallback.} =
+proc cd(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
 
-  if plg.ctx.cmdParam.len != 0:
-    if plg.ctx.cmdParam[0].len != 0:
+  if cmd.params.len != 0:
+    if cmd.params[0].len != 0:
       let
-        path = plg.ctx.cmdParam[0].strip()
+        path = cmd.params[0].strip()
 
       if path.dirExists():
         plg.setCurrentDir(path)
@@ -566,8 +574,8 @@ proc cd(plg: var Plugin) {.feudCallback.} =
           docid = plg.getDocId()
 
         if docid > -1 and docid < docs.doclist.len:
-          plg.ctx.cmdParam = @[docs.doclist[docid].path]
-          plg.cd()
+          cmd.params = @[docs.doclist[docid].path]
+          plg.cd(cmd)
       elif path == "-":
         if docs.currDir != 0:
           docs.currDir -= 1
@@ -602,8 +610,13 @@ feudPluginLoad:
     docs.dirHistory = initDeque[string]()
     docs.dirHistory.addLast(getCurrentDir())
 
-  discard plg.ctx.handleCommand(plg.ctx, "hook preCloseWindow unload")
-  discard plg.ctx.handleCommand(plg.ctx, "hook onWindowActivate reloadIfChanged")
-  discard plg.ctx.handleCommand(plg.ctx, "hook postFileSwitch reloadIfChanged")
-  discard plg.ctx.handleCommand(plg.ctx, "hook postNewWindow open 0")
-  discard plg.ctx.handleCommand(plg.ctx, "hook onWindowSavePoint updateModified")
+  for i in [
+    "hook preCloseWindow unload",
+    "hook onWindowActivate reloadIfChanged",
+    "hook postFileSwitch reloadIfChanged",
+    "hook postNewWindow open 0",
+    "hook onWindowSavePoint updateModified"
+  ]:
+    var
+      ccmd = newCmdData(i)
+    plg.ctx.handleCommand(plg.ctx, ccmd)

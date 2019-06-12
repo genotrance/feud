@@ -28,7 +28,7 @@ proc positionPopup(plg: var Plugin, hwnd: HWND) =
       pix,
       if hwnd.IsWindowVisible == 1: SWP_SHOWWINDOW else: 0)
 
-proc popupGrabFocus(plg: var Plugin) {.feudCallback.} =
+proc popupGrabFocus(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     hwnd = windows.editors[windows.current].popup
@@ -36,7 +36,7 @@ proc popupGrabFocus(plg: var Plugin) {.feudCallback.} =
   if hwnd.IsWindowVisible() == 1:
     msg(plg.ctx, SCI_GRABFOCUS, popup=true)
 
-proc closePopup(plg: var Plugin) {.feudCallback.} =
+proc closePopup(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     hwnd = windows.editors[windows.current].popup
@@ -46,20 +46,20 @@ proc closePopup(plg: var Plugin) {.feudCallback.} =
     hwnd.ShowWindow(SW_HIDE)
     msg(plg.ctx, SCI_GRABFOCUS)
 
-proc togglePopup(plg: var Plugin) {.feudCallback.} =
+proc togglePopup(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     hwnd = windows.editors[windows.current].popup
 
   if hwnd.IsWindowVisible() == 1:
-    plg.closePopup()
+    plg.closePopup(cmd)
   else:
     plg.positionPopup(hwnd)
-    if plg.ctx.cmdParam.len != 0:
+    if cmd.params.len != 0:
       let
-        param = plg.ctx.cmdParam[0]
-      msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & " ").cstring, popup=true)
-      msg(plg.ctx, SCI_GOTOPOS, param.len+1, popup=true)
+        param = cmd.params.join(" ") & " "
+      msg(plg.ctx, SCI_APPENDTEXT, param.len, param.cstring, popup=true)
+      msg(plg.ctx, SCI_GOTOPOS, param.len, popup=true)
       msg(plg.ctx, SCI_SCROLLRANGE, 1, 0.toPtr, popup=true)
 
     msg(plg.ctx, SCI_MARKERDEFINE, 1, SC_MARK_ARROWS.toPtr, popup=true)
@@ -74,13 +74,15 @@ proc execPopup(plg: var Plugin) =
   if length != 0:
     var
       data = alloc0(length+1)
+      cmd: CmdData
     defer: data.dealloc()
 
     if msg(plg.ctx, SCI_GETTEXT, length+1, data, popup=true) == length:
-      plg.togglePopup()
+      cmd = new(CmdData)
+      plg.togglePopup(cmd)
       let
-        cmd = ($cast[cstring](data)).strip()
-      if cmd.len != 0:
-        plg.ctx.cmdParam = @[cmd]
-        plg.addHistory()
-        discard plg.ctx.handleCommand(plg.ctx, cmd)
+        command = ($cast[cstring](data)).strip()
+      if command.len != 0:
+        cmd = newCmdData(command)
+        plg.addHistory(cmd)
+        plg.ctx.handleCommand(plg.ctx, cmd)

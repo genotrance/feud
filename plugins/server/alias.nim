@@ -15,18 +15,22 @@ proc setupAlias(plg: var Plugin, alias: string) =
 
   if not plg.callbacks.hasKey(alias):
     plg.cindex.incl alias
-    plg.callbacks[alias] = proc(plg: var Plugin) =
+    plg.callbacks[alias] = proc(plg: var Plugin, cmd: var CmdData) =
       var
-        cmd = aliases.atable[alias]
+        command = aliases.atable[alias]
 
-      for param in plg.getParam():
-        discard plg.ctx.handleCommand(plg.ctx, &"{cmd} {param}")
+      if cmd.params.len != 0:
+        command &= " " & cmd.params.join(" ")
 
-proc alias(plg: var Plugin) {.feudCallback.} =
+      var
+        ccmd = newCmdData(command)
+      plg.ctx.handleCommand(plg.ctx, ccmd)
+
+proc alias(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     aliases = plg.getAliases()
 
-  if plg.ctx.cmdParam.len == 0:
+  if cmd.params.len == 0:
     var aout = ""
 
     for alias in aliases.atable.keys():
@@ -35,17 +39,22 @@ proc alias(plg: var Plugin) {.feudCallback.} =
     if aout.len != 0:
       plg.ctx.notify(plg.ctx, aout[0 .. ^2])
   else:
-    for param in plg.getParam():
+    if cmd.params.len == 1 and cmd.params[0].len != 0:
       let
-        (alias, val) = param.splitCmd()
-
-      if val.len != 0:
-        aliases.atable[alias] = val
-        plg.setupAlias(alias)
-      else:
-        aliases.atable.del(alias)
-        plg.cindex.excl alias
-        plg.callbacks.del(alias)
+        alias = cmd.params[0]
+      aliases.atable.del(alias)
+      plg.cindex.excl alias
+      plg.callbacks.del(alias)
+    elif cmd.params.len == 2 and
+      cmd.params[0].len != 0 and cmd.params[1].len != 0:
+      let
+        alias = cmd.params[0]
+        val = cmd.params[1]
+      aliases.atable[alias] = val
+      plg.setupAlias(alias)
+    else:
+      plg.ctx.notify(plg.ctx, "Invalid syntax for alias")
+      cmd.failed = true
 
 feudPluginLoad:
   var

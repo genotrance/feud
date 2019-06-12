@@ -1,6 +1,14 @@
 import segfaults, dynlib, locks, sets, tables
 
 type
+  CmdData* = ref object
+    params*: seq[string]
+    pparams*: seq[pointer]
+
+    failed*: bool
+    returned*: seq[string]
+    preturned*: seq[pointer]
+
   Plugin* = ref object
     ctx*: Ctx
     name*: string
@@ -10,14 +18,14 @@ type
     depends*: seq[string]
     dependents*: HashSet[string]
 
-    onDepends*: proc(plg: var Plugin)
-    onLoad*: proc(plg: var Plugin)
-    onUnload*: proc(plg: var Plugin)
-    onTick*: proc(plg: var Plugin)
-    onNotify*: proc(plg: var Plugin)
+    onDepends*: proc(plg: var Plugin, cmd: var CmdData)
+    onLoad*: proc(plg: var Plugin, cmd: var CmdData)
+    onUnload*: proc(plg: var Plugin, cmd: var CmdData)
+    onTick*: proc(plg: var Plugin, cmd: var CmdData)
+    onNotify*: proc(plg: var Plugin, cmd: var CmdData)
 
     cindex*: HashSet[string]
-    callbacks*: TableRef[string, proc(plg: var Plugin)]
+    callbacks*: TableRef[string, proc(plg: var Plugin, cmd: var CmdData)]
     pluginData*: pointer
 
   Run* = enum
@@ -39,14 +47,11 @@ type
 
     msg*: proc(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int
     notify*: proc(ctx: var Ctx, msg: string)
-    handleCommand*: proc(ctx: var Ctx, command: string): bool {.nimcall.}
+    handleCommand*: proc(ctx: var Ctx, cmd: var CmdData) {.nimcall.}
 
     tick*: int
     pmonitor*: ptr PluginMonitor
     plugins*: TableRef[string, Plugin]
     pluginData*: TableRef[string, pointer]
-
-    cmdParam*: seq[string]
-    ptrParam*: seq[pointer]
 
   FeudException* = object of Exception

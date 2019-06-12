@@ -14,23 +14,20 @@ proc exitScintilla() =
   if Scintilla_ReleaseResources() == 0:
     raise newException(Exception, "Failed to exit Scintilla")
 
-proc handleCommand*(ctx: var Ctx, command: string): bool =
-  result = true
-  let
-    (cmd, param) = command.splitCmd()
-
-  case cmd:
-    of "quit", "exit":
-      ctx.run = stopped
-    of "notify":
-      if param.len != 0:
-        ctx.notify(ctx, param)
-    else:
-      if param.len != 0:
-        ctx.cmdParam = @[param]
+proc handleCommand*(ctx: var Ctx, cmd: var CmdData) =
+  if cmd.params.len != 0:
+    case cmd.params[0]:
+      of "quit", "exit":
+        ctx.run = stopped
+      of "notify":
+        if cmd.params.len > 1:
+          ctx.notify(ctx, cmd.params[1 .. ^1].join(" "))
+        else:
+          cmd.failed = true
       else:
-        ctx.cmdParam = @[]
-      result = ctx.handlePluginCommand(cmd)
+        ctx.handlePluginCommand(cmd)
+  else:
+    cmd.failed = true
 
 proc initCtx(): Ctx =
   result = new(Ctx)

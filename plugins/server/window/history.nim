@@ -19,19 +19,16 @@ proc getNextHistory(plg: var Plugin) =
     discard msg(plg.ctx, SCI_SETTEXT, 0, windows.history[windows.currHist].cstring, popup=true)
     discard msg(plg.ctx, SCI_GOTOPOS, windows.history[windows.currHist].len, 0.toPtr, popup=true)
 
-proc addHistory(plg: var Plugin) {.feudCallback.} =
+proc addHistory(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
 
-  for param in plg.ctx.cmdParam:
-    let
-      param = param.strip()
-    if param.len != 0:
-      windows.history.add param
+  if cmd.params.len != 0:
+    windows.history.add cmd.params.join(" ")
 
   windows.currHist = windows.history.len-1
 
-proc listHistory(plg: var Plugin) {.feudCallback.} =
+proc listHistory(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     nf = ""

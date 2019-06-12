@@ -3,7 +3,7 @@ import macros, os, sets, strformat, strutils, tables
 import nimterop/[cimport, git]
 
 import "."/[globals, utils]
-export Plugin, Ctx
+export CmdData, Plugin, Ctx
 export utils
 
 # Scintilla constants
@@ -55,7 +55,7 @@ const
   callbacks = ctcallbacks
 
 template feudPluginLoad*(body: untyped) {.dirty.} =
-  proc onLoad*(plg: var Plugin) {.exportc, dynlib.} =
+  proc onLoad*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
     bind callbacks
     plg.cindex = callbacks
 
@@ -66,19 +66,19 @@ template feudPluginLoad*() {.dirty.} =
     discard
 
 template feudPluginUnload*(body: untyped) {.dirty.} =
-  proc onUnload*(plg: var Plugin) {.exportc, dynlib.} =
+  proc onUnload*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
     body
 
 template feudPluginTick*(body: untyped) {.dirty.} =
-  proc onTick*(plg: var Plugin) {.exportc, dynlib.} =
+  proc onTick*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
     body
 
 template feudPluginNotify*(body: untyped) {.dirty.} =
-  proc onNotify*(plg: var Plugin) {.exportc, dynlib.} =
+  proc onNotify*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
     body
 
 template feudPluginDepends*(deps) =
-  proc onDepends*(plg: var Plugin) {.exportc, dynlib.} =
+  proc onDepends*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
     plg.depends.add deps
 
 proc getCtxData*[T](plg: var Plugin): T =
@@ -132,9 +132,12 @@ proc gotoEnd*(plg: var Plugin) =
   discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, length)
 
 proc getCbResult*(plg: var Plugin, command: string): string =
-  if plg.ctx.handleCommand(plg.ctx, command):
-    if plg.ctx.cmdParam.len != 0 and plg.ctx.cmdParam[0].len != 0:
-      return plg.ctx.cmdParam[0]
+  var
+    cmd = newCmdData(command)
+  plg.ctx.handleCommand(plg.ctx, cmd)
+  if not cmd.failed:
+    if cmd.returned.len != 0 and cmd.returned[0].len != 0:
+      return cmd.returned[0]
 
 proc getCbIntResult*(plg: var Plugin, command: string, default = 0): int =
   let

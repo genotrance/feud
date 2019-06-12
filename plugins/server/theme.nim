@@ -15,12 +15,14 @@ proc toBgr(rgb: string): int =
 const
   gBold = @["COMMENTDOC", "COMMENTLINEDOC", "OPERATOR"]
 
-proc doSet(plg: var Plugin, cmds: string) =
-  for cmd in cmds.splitLines():
+proc doSet(plg: var Plugin, commands: string) =
+  for command in commands.splitLines():
     let
-      cmd = cmd.strip()
-    if cmd.len != 0:
-      discard plg.ctx.handleCommand(plg.ctx, "eMsg " & cmd)
+      command = command.strip()
+    if command.len != 0:
+      var
+        cmd = newCmdData("eMsg " & command)
+      plg.ctx.handleCommand(plg.ctx, cmd)
 
 template doSet(msgID, wp, lp) =
   discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr)
@@ -28,7 +30,7 @@ template doSet(msgID, wp, lp) =
 template doSet(msgID, wp, lp, popup) =
   discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr, popup)
 
-proc setPopupTheme(plg: var Plugin) {.feudCallback.} =
+proc setPopupTheme(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   let
     fontName = plg.getCbResult("get theme:fontName")
     fontSize = plg.getCbIntResult("get theme:fontSize")
@@ -60,11 +62,11 @@ proc setPopupTheme(plg: var Plugin) {.feudCallback.} =
   if indentColor != 0:
     doSet(SCI_SETCARETFORE, caretColor, 0, popup=true)
 
-proc setTheme(plg: var Plugin) {.feudCallback.} =
+proc setTheme(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   let
     lexer =
-      if plg.ctx.cmdParam.len != 0:
-        plg.ctx.cmdParam[0].toUpperAscii
+      if cmd.params.len != 0:
+        cmd.params[0].toUpperAscii
       else:
         ""
 
@@ -169,5 +171,10 @@ proc setTheme(plg: var Plugin) {.feudCallback.} =
 feudPluginDepends(["config"])
 
 feudPluginLoad:
-  discard plg.ctx.handleCommand(plg.ctx, "hook postNewWindow setPopupTheme")
-  discard plg.ctx.handleCommand(plg.ctx, "hook postNewWindow setTheme")
+  for i in [
+    "hook postNewWindow setPopupTheme",
+    "hook postNewWindow setTheme"
+  ]:
+    var
+      ccmd = newCmdData(i)
+    plg.ctx.handleCommand(plg.ctx, ccmd)

@@ -52,22 +52,27 @@ proc adjustUrl(url: string): string =
 
   return $parsed
 
-proc getGist(plg: var Plugin) {.feudCallback.} =
+proc getGist(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     client = newHttpClient(proxy = getProxy())
     success = false
 
-  for param in plg.getParam():
+  for param in cmd.params:
     try:
       let r = client.get(param.adjustUrl())
       if r.code().is2xx():
-        if plg.ctx.handleCommand(plg.ctx, "newDoc"):
+        var
+          ccmd = newCmdData("newDoc")
+        plg.ctx.handleCommand(plg.ctx, ccmd)
+        if not ccmd.failed:
           discard plg.ctx.msg(plg.ctx, SCI_ADDTEXT, r.body.len, r.body.cstring)
-          discard plg.ctx.handleCommand(plg.ctx, &"setTitle {param}")
+          ccmd = newCmdData(&"setTitle {param}")
+          plg.ctx.handleCommand(plg.ctx, ccmd)
           success = true
     except OSError:
       discard
 
+    cmd.failed = not success
     plg.ctx.notify(plg.ctx,
       if not success:
         &"Failed to load gist {param}"
@@ -75,7 +80,7 @@ proc getGist(plg: var Plugin) {.feudCallback.} =
         &"Loaded gist {param}"
     )
 
-proc gist(plg: var Plugin) {.feudCallback.} =
+proc gist(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     client = newHttpClient(proxy = getProxy())
     url = "http://ix.io"
@@ -112,10 +117,14 @@ proc gist(plg: var Plugin) {.feudCallback.} =
   if not success:
     plg.ctx.notify(plg.ctx, &"Failed to create gist")
   else:
+    var
+      ccmd: CmdData
     plg.ctx.notify(plg.ctx, &"Created gist {gistUrl}")
-    discard plg.ctx.handleCommand(plg.ctx, &"togglePopup {gistUrl}")
+    ccmd = newCmdData(&"togglePopup {gistUrl}")
+    plg.ctx.handleCommand(plg.ctx, ccmd)
     discard plg.ctx.msg(plg.ctx, SCI_SELECTALL, popup = true)
     discard plg.ctx.msg(plg.ctx, SCI_COPY, popup = true)
-    discard plg.ctx.handleCommand(plg.ctx, &"togglePopup")
+    ccmd = newCmdData(&"togglePopup")
+    plg.ctx.handleCommand(plg.ctx, ccmd)
 
 feudPluginLoad()

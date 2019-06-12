@@ -2,17 +2,15 @@ import os, osproc, streams, strformat, strutils, times
 
 import "../../src"/pluginapi
 
-proc execLive(plg: var Plugin, cmd: string) =
+proc execLive(plg: var Plugin, cmd: var CmdData) =
+  when defined(Windows):
+    cmd.params = @["cmd", "/c"] & cmd.params
+
   let
-    cmd =
-      when defined(Windows):
-        ("cmd /c " & cmd).parseCmdLine()
-      else:
-        cmd.parseCmdLine()
-    command = cmd[0]
+    command = cmd.params[0]
     args =
-      if cmd.len > 1:
-        cmd[1 .. ^1]
+      if cmd.params.len > 1:
+        cmd.params[1 .. ^1]
       else:
         @[]
 
@@ -30,7 +28,7 @@ proc execLive(plg: var Plugin, cmd: string) =
 
       discard plg.ctx.msg(plg.ctx, SCI_ADDTEXT, line.len, line.cstring)
   except IOError, OSError:
-    discard
+    cmd.failed = true
 
   sout.close()
 
@@ -39,27 +37,28 @@ proc execLive(plg: var Plugin, cmd: string) =
 
   if err != 0:
     plg.ctx.notify(plg.ctx, "Command failed: " & $err)
+    cmd.failed = true
 
   plg.gotoEnd()
 
-proc exec(plg: var Plugin) {.feudCallback.} =
+proc exec(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  plg.execLive(cmd)
+
   var
-    params = plg.getParam()
+    ccmd = newCmdData("togglePopup !>")
+  plg.ctx.handleCommand(plg.ctx, ccmd)
 
-  for param in params:
-    plg.execLive(param)
+proc execNew(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  var
+    ccmd = newCmdData("newDoc")
+  plg.ctx.handleCommand(plg.ctx, ccmd)
+  if not ccmd.failed:
+    plg.execLive(cmd)
+  else:
+    cmd.failed = true
 
-  discard plg.ctx.handleCommand(plg.ctx, "togglePopup !>")
-
-proc execNew(plg: var Plugin) {.feudCallback.} =
-  let
-    params = plg.getParam()
-
-  if plg.ctx.handleCommand(plg.ctx, "newDoc"):
-    for param in params:
-      plg.execLive(param)
-
-  discard plg.ctx.handleCommand(plg.ctx, "togglePopup !>")
+  ccmd = newCmdData("togglePopup !>")
+  plg.ctx.handleCommand(plg.ctx, ccmd)
 
 proc saveToTemp(plg: var Plugin): tuple[tmpfile: string, selection: bool] =
   result.tmpfile = getTempDir() / "feud_shell_" & $(getTime().toUnix()) & ".txt"
@@ -85,23 +84,24 @@ proc saveToTemp(plg: var Plugin): tuple[tmpfile: string, selection: bool] =
   finally:
     discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 0.toPtr)
 
-proc execPipe(plg: var Plugin, tmpfile: string, params: seq[string]) =
-  for param in params:
-    let
-      cmd =
-        when defined(Windows):
-          &"type {tmpfile.quoteShell} | cmd /c {param}"
-        else:
-          &"cat {tmpfile.quoteShell} | {param}"
+proc execPipe(plg: var Plugin, cmd: var CmdData, tmpfile: string) =
+  var
+    command =
+      when defined(Windows):
+        &"""type {tmpfile.quoteShell} | cmd /c {cmd.params.join(" ")}"""
+      else:
+        &"""cat {tmpfile.quoteShell} | {cmd.params.join(" ")}"""
+    ccmd = newCmdData(command)
 
-    plg.execLive(cmd)
+  plg.execLive(ccmd)
+  if ccmd.failed:
+    cmd.failed = true
 
   if tmpfile.tryRemoveFile() == false:
     plg.ctx.notify(plg.ctx, &"Failed to remove {tmpfile}")
 
-proc pipe(plg: var Plugin) {.feudCallback.} =
+proc pipe(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
-    params = plg.getParam()
     (tmpfile, selection) = plg.saveToTemp()
 
   if tmpfile.len != 0:
@@ -110,24 +110,32 @@ proc pipe(plg: var Plugin) {.feudCallback.} =
     else:
       discard plg.ctx.msg(plg.ctx, SCI_CLEAR)
 
-    plg.execPipe(tmpfile, params)
+    plg.execPipe(cmd, tmpfile)
 
-proc pipeNew(plg: var Plugin) {.feudCallback.} =
+proc pipeNew(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
-    params = plg.getParam()
     (tmpfile, selection) = plg.saveToTemp()
+    ccmd = newCmdData("newDoc")
 
   if tmpfile.len != 0:
-    if plg.ctx.handleCommand(plg.ctx, "newDoc"):
-      plg.execPipe(tmpfile, params)
+    plg.ctx.handleCommand(plg.ctx, ccmd)
+    if not ccmd.failed:
+      plg.execPipe(cmd, tmpfile)
+    else:
+      cmd.failed = true
 
-  discard plg.ctx.handleCommand(plg.ctx, "togglePopup !>")
+  ccmd = newCmdData("togglePopup !>")
+  plg.ctx.handleCommand(plg.ctx, ccmd)
 
 feudPluginDepends(["alias", "window"])
 
 feudPluginLoad:
-  discard plg.ctx.handleCommand(plg.ctx, "alias ! execNew")
-  discard plg.ctx.handleCommand(plg.ctx, "alias !> exec")
-
-  discard plg.ctx.handleCommand(plg.ctx, "alias | pipeNew")
-  discard plg.ctx.handleCommand(plg.ctx, "alias |> pipe")
+  for i in [
+    "alias ! execNew",
+    "alias !> exec",
+    "alias | pipeNew",
+    "alias |> pipe"
+  ]:
+    var
+      ccmd = newCmdData(i)
+    plg.ctx.handleCommand(plg.ctx, ccmd)

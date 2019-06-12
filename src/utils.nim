@@ -1,4 +1,4 @@
-import strutils
+import os, strutils
 
 import "."/globals
 
@@ -24,10 +24,10 @@ template doException*(cond, msg) =
   if not cond:
     raise newException(FeudException, msg)
 
-proc toCallback*(callback: pointer): proc(plg: var Plugin) =
+proc toCallback*(callback: pointer): proc(plg: var Plugin, cmd: var CmdData) =
   if not callback.isNil:
-    result = proc(plg: var Plugin) =
-      cast[proc(plg: var Plugin) {.cdecl.}](callback)(plg)
+    result = proc(plg: var Plugin, cmd: var CmdData) =
+      cast[proc(plg: var Plugin, cmd: var CmdData) {.cdecl.}](callback)(plg, cmd)
 
 proc splitCmd*(command: string): tuple[name, val: string] =
   let
@@ -37,9 +37,9 @@ proc splitCmd*(command: string): tuple[name, val: string] =
 
   return (name, val)
 
-proc getParam*(plg: var Plugin): seq[string] =
-  deepCopy(result, plg.ctx.cmdParam)
-  plg.ctx.cmdParam = @[]
+proc newCmdData*(command: string): CmdData =
+  result = new(CmdData)
+  result.params = command.parseCmdLine()
 
 template decho*(str: untyped) =
   when not defined(release):

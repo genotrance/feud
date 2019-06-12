@@ -28,20 +28,22 @@ proc resizeFrame(plg: var Plugin, hwnd: HWND) =
 proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
   var
     plg = cast[Plugin](hwnd.GetWindowLongPtr(GWLP_USERDATA))
+    ccmd: CmdData
 
   case msg:
     of WM_ACTIVATE:
       hwnd.setFocus()
       plg.setCurrentWindow(hwnd)
-      discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowActivate")
+      ccmd = newCmdData("runHook onWindowActivate")
+      plg.ctx.handleCommand(plg.ctx, ccmd)
     of WM_CREATE:
       var
         pCreate = cast[ptr CREATESTRUCT](lParam)
         plg = cast[LONG_PTR](pCreate.lpCreateParams)
       hwnd.SetWindowLongPtr(GWLP_USERDATA, plg)
     of WM_CLOSE:
-      plg.ctx.cmdParam = @[]
-      plg.closeWindow()
+      ccmd = new(CmdData)
+      plg.closeWindow(ccmd)
     of WM_DESTROY:
       PostQuitMessage(0)
     of WM_NOTIFY:
@@ -49,13 +51,17 @@ proc frameCallback(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESU
         notify = cast[ptr SCNotification](lParam)
         hdr = cast[ptr NMHDR](lParam)
       if hdr[].code == SCN_UPDATEUI:
-        discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowUpdate")
+        ccmd = newCmdData("runHook onWindowUpdate")
+        plg.ctx.handleCommand(plg.ctx, ccmd)
         if (notify[].updated and SC_UPDATE_CONTENT) != 0:
-          discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowContent")
+          ccmd = newCmdData("runHook onWindowContent")
+          plg.ctx.handleCommand(plg.ctx, ccmd)
         elif (notify[].updated and SC_UPDATE_SELECTION) != 0:
-          discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowSelection")
+          ccmd = newCmdData("runHook onWindowSelection")
+          plg.ctx.handleCommand(plg.ctx, ccmd)
       elif hdr[].code in [SCN_SAVEPOINTREACHED, SCN_SAVEPOINTLEFT]:
-        discard plg.ctx.handleCommand(plg.ctx, "runHook onWindowSavePoint")
+        ccmd = newCmdData("runHook onWindowSavePoint")
+        plg.ctx.handleCommand(plg.ctx, ccmd)
     of WM_SIZE:
       plg.resizeFrame(hwnd)
       plg.positionPopup(hwnd.GetWindow(GW_CHILD).GetWindow(GW_CHILD))

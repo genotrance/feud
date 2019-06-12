@@ -77,13 +77,10 @@ proc toInt(sval: string, ival: var int): bool =
   except:
     discard
 
-proc eMsg(plg: var Plugin) {.feudCallback.} =
-  var
-    params = plg.getParam()
-
-  for param in params:
+proc eMsg(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  if cmd.params.len != 0:
     var
-      spl = param.parseCmdLine()
+      spl = cmd.params
       verbose = "-v" in spl
       popup = "-p" in spl
 
@@ -102,14 +99,16 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
         s = SciDefs[spl[0]]
       elif not spl[0].toInt(s):
         plg.ctx.notify(plg.ctx, "Bad SCI value " & spl[0])
-        continue
+        cmd.failed = true
+        return
 
     if spl.len > 1:
       if SciDefs.hasKey(spl[1]):
         l = SciDefs[spl[1]]
       elif not spl[1].toInt(l):
         plg.ctx.notify(plg.ctx, "Bad integer value " & spl[1])
-        continue
+        cmd.failed = true
+        return
 
       if spl.len > 2:
         if SciDefs.hasKey(spl[2]):
@@ -126,7 +125,7 @@ proc eMsg(plg: var Plugin) {.feudCallback.} =
     else:
       ret = msg(plg.ctx, s, popup = popup)
 
-    plg.ctx.cmdParam = @[$ret]
+    cmd.returned.add $ret
     if verbose:
       plg.ctx.notify(plg.ctx, "Returned: " & $ret)
 
@@ -149,11 +148,11 @@ proc getWinidFromHwnd(plg: var Plugin, hwnd: HWND): int =
       result = i
       break
 
-proc getCurrentWindow(plg: var Plugin) {.feudCallback.} =
+proc getCurrentWindow(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
 
-  plg.ctx.cmdParam = @[$(windows.current)]
+  cmd.returned.add $(windows.current)
 
 proc setCurrentWindow(plg: var Plugin, hwnd: HWND) =
   var
@@ -186,77 +185,80 @@ proc setCurrentWindowOnClose(plg: var Plugin, closeid: int) =
       if closeid < windows.current:
         windows.current -= 1
 
-proc newWindow(plg: var Plugin) {.feudCallback.} =
+proc newWindow(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     editor = plg.createEditor()
 
   editor.frame.ShowWindow(SW_SHOW)
   msg(plg.ctx, SCI_GRABFOCUS)
 
-  discard plg.ctx.handleCommand(plg.ctx, "runHook postNewWindow")
+  var
+    ccmd = newCmdData("runHook postNewWindow")
+  plg.ctx.handleCommand(plg.ctx, ccmd)
 
-proc closeWindow(plg: var Plugin) {.feudCallback.} =
+proc closeWindow(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     winid = 0
-    params =
-      if plg.ctx.cmdParam.len != 0:
-        plg.getParam()
-      else:
-        @[$(windows.current)]
 
-  for param in params:
+  if cmd.params.len == 0:
+    cmd.params.add $(windows.current)
+
+  for param in cmd.params:
     try:
       winid = param.parseInt()
     except:
       continue
 
-    discard plg.ctx.handleCommand(plg.ctx, strformat.`&`("runHook preCloseWindow {winid}"))
+    var
+      ccmd = newCmdData(strformat.`&`("runHook preCloseWindow {winid}"))
+    plg.ctx.handleCommand(plg.ctx, ccmd)
 
     if winid > 0:
       plg.deleteEditor(winid)
 
-proc setTitle(plg: var Plugin) {.feudCallback.} =
+proc setTitle(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     winid = windows.current
-  if plg.ctx.cmdParam.len != 0:
-    SetWindowText(windows.editors[winid].frame, plg.ctx.cmdParam[0].cstring)
+  if cmd.params.len != 0:
+    SetWindowText(windows.editors[winid].frame, cmd.params[0].cstring)
 
-proc getLastId(plg: var Plugin) {.feudCallback.} =
-  var
-    windows = plg.getWindows()
-    winid = windows.current
-
-  plg.ctx.cmdParam = @[$windows.editors[winid].last]
-
-proc getDocId(plg: var Plugin) {.feudCallback.} =
+proc getLastId(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     winid = windows.current
 
-  if plg.ctx.cmdParam.len != 0:
+  cmd.returned.add $windows.editors[winid].last
+
+proc getDocId(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  var
+    windows = plg.getWindows()
+    winid = windows.current
+
+  if cmd.params.len != 0:
     try:
-      winid = plg.ctx.cmdParam[0].parseInt()
-      plg.ctx.cmdParam = @[$windows.editors[winid].docid]
+      winid = cmd.params[0].parseInt()
+      cmd.returned.add $windows.editors[winid].docid
     except:
-      plg.ctx.cmdParam = @["-1"]
+      cmd.returned.add "-1"
+      cmd.failed = true
   else:
-    plg.ctx.cmdParam = @[$windows.editors[winid].docid]
+    cmd.returned.add $windows.editors[winid].docid
 
-proc setDocId(plg: var Plugin) {.feudCallback.} =
-  if plg.ctx.cmdParam.len != 0:
+proc setDocId(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+  if cmd.params.len != 0:
     var
       windows = plg.getWindows()
       winid = windows.current
       docid = -1
 
     try:
-      docid = plg.ctx.cmdParam[0].parseInt()
+      docid = cmd.params[0].parseInt()
       windows.editors[winid].last = windows.editors[winid].docid
       windows.editors[winid].docid = docid
     except:
-      discard
+      cmd.failed = true
 
 proc getDroppedFiles(hDrop: HDROP): seq[string] =
   var
@@ -275,6 +277,7 @@ feudPluginDepends(["config"])
 feudPluginLoad:
   var
     windows = plg.getWindows()
+    ccmd: CmdData
 
   windows.ecache.init()
   windows.pcache.init()
@@ -289,14 +292,19 @@ feudPluginLoad:
   windows.last = getTime()
 
   if not plg.ctx.ready:
-    discard plg.ctx.handleCommand(plg.ctx, "hook onReady newWindow")
+    ccmd = newCmdData("hook onReady newWindow")
+    plg.ctx.handleCommand(plg.ctx, ccmd)
   else:
-    plg.newWindow()
-  discard plg.ctx.handleCommand(plg.ctx, "runHook postWindowLoad")
-
-  discard plg.ctx.handleCommand(plg.ctx, "hook onLeftClick closePopup")
-  discard plg.ctx.handleCommand(plg.ctx, "hook onMiddleClick closePopup")
-  discard plg.ctx.handleCommand(plg.ctx, "hook onRightClick closePopup")
+    plg.newWindow(cmd)
+  
+  for i in [
+    "runHook postWindowLoad",
+    "hook onLeftClick closePopup",
+    "hook onMiddleClick closePopup",
+    "hook onRightClick closePopup"
+  ]:
+    ccmd = newCmdData(i)
+    plg.ctx.handleCommand(plg.ctx, ccmd)
 
 feudPluginTick:
   var
@@ -304,6 +312,7 @@ feudPluginTick:
     lpmsg = cast[LPMSG](addr msg)
     windows = plg.getWindows()
     done = false
+    ccmd: CmdData
 
   if PeekMessageW(lpmsg, 0, 0, 0, PM_REMOVE) > 0:
     windows.last = getTime()
@@ -311,7 +320,8 @@ feudPluginTick:
       let
         id = msg.wparam.int
       if windows.hotkeys.hasKey(id):
-        discard plg.ctx.handleCommand(plg.ctx, windows.hotkeys[id].callback)
+        ccmd = newCmdData(windows.hotkeys[id].callback)
+        plg.ctx.handleCommand(plg.ctx, ccmd)
       done = true
     elif msg.message == WM_KEYDOWN:
       if msg.hwnd in windows.ecache or msg.hwnd in windows.pcache:
@@ -327,11 +337,13 @@ feudPluginTick:
           id = id or MOD_WIN
 
         if windows.hotkeys.hasKey(id):
-          discard plg.ctx.handleCommand(plg.ctx, windows.hotkeys[id].callback)
+          ccmd = newCmdData(windows.hotkeys[id].callback)
+          plg.ctx.handleCommand(plg.ctx, ccmd)
           done = true
         elif msg.hwnd in windows.pcache:
           if msg.wparam == VK_ESCAPE:
-            plg.togglePopup()
+            ccmd = new(CmdData)
+            plg.togglePopup(ccmd)
             windows.currHist = windows.history.len-1
             done = true
           elif msg.wparam == VK_RETURN:
@@ -347,13 +359,17 @@ feudPluginTick:
       let
         files = getDroppedFiles(cast[HDROP](msg.wparam))
       if files.len != 0:
-        discard plg.ctx.handleCommand(plg.ctx, "open \"" & files.join("\" \"") & "\"")
+        ccmd = newCmdData("open \"" & files.join("\" \"") & "\"")
+        plg.ctx.handleCommand(plg.ctx, ccmd)
     elif msg.message == WM_LBUTTONUP:
-      discard plg.ctx.handleCommand(plg.ctx, "runHook onLeftClick")
+      ccmd = newCmdData("runHook onLeftClick")
+      plg.ctx.handleCommand(plg.ctx, ccmd)
     elif msg.message == WM_MBUTTONUP:
-      discard plg.ctx.handleCommand(plg.ctx, "runHook onMiddleClick")
+      ccmd = newCmdData("runHook onMiddleClick")
+      plg.ctx.handleCommand(plg.ctx, ccmd)
     elif msg.message == WM_RBUTTONUP:
-      discard plg.ctx.handleCommand(plg.ctx, "runHook onRightClick")
+      ccmd = newCmdData("runHook onRightClick")
+      plg.ctx.handleCommand(plg.ctx, ccmd)
 
     if not done:
       discard TranslateMessage(addr msg)
@@ -365,7 +381,8 @@ feudPluginTick:
         plg.deleteEditor(i)
     if plg.ctx.ready == true and windows.editors.len == 1:
       plg.deleteEditor(0)
-      discard plg.ctx.handleCommand(plg.ctx, "quit")
+      ccmd = newCmdData("quit")
+      plg.ctx.handleCommand(plg.ctx, ccmd)
 
   if getTime() - windows.last > initDuration(milliseconds=1):
     sleep(5)
@@ -374,16 +391,19 @@ feudPluginNotify:
   var
     windows = plg.getWindows()
 
-  for param in plg.getParam():
+  for param in cmd.params:
     msg(plg.ctx, SCI_APPENDTEXT, param.len+1, (param & "\n").cstring, windowID=0)
     if windows.editors.len != 0 and windows.current < windows.editors.len:
-      discard plg.ctx.handleCommand(plg.ctx, strformat.`&`("runHook postWindowNotify {param.strip()}"))
+      var
+        ccmd = newCmdData(strformat.`&`("runHook postWindowNotify {param.strip()}"))
+      plg.ctx.handleCommand(plg.ctx, ccmd)
 
 feudPluginUnload:
   var
     windows = plg.getWindows()
+    ccmd = newCmdData("runHook preWindowUnload")
 
-  discard plg.ctx.handleCommand(plg.ctx, "runHook preWindowUnload")
+  plg.ctx.handleCommand(plg.ctx, ccmd)
 
   for i in countdown(windows.editors.len-1, 0):
     plg.deleteEditor(i)
