@@ -27,7 +27,7 @@ type
     last: Time
     current: int
     editors: seq[Editor]
-    hotkeys: TableRef[int, tuple[hotkey, callback: string]]
+    hotkeys: Table[int, tuple[hotkey, callback: string]]
     history: seq[string]
     currHist: int
 
@@ -288,7 +288,6 @@ feudPluginLoad:
 
   discard plg.createEditor()
 
-  windows.hotkeys = newTable[int, tuple[hotkey, callback: string]]()
   windows.last = getTime()
 
   if not plg.ctx.ready:

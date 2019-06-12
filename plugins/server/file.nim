@@ -391,7 +391,10 @@ proc saveAs(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
       doc = docs.doclist[plg.getDocId()]
 
     if name.len != 0:
-      doc.path = name.expandFilename()
+      doc.path = name
+      if not doc.path.isAbsolute:
+        doc.path = getCurrentDir() / name
+      doc.path.normalizePath()
 
       if plg.getCbResult("get file:fileChdir") == "true":
         doc.path.parentDir().setCurrentDir()

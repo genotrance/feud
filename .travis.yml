@@ -4,11 +4,14 @@ os:
 language: c
 
 env:
-  - BRANCH=0.19.4
+  - BRANCH=0.19.6
+  - BRANCH=0.20.0
+  - BRANCH=devel
 
 cache:
   directories:
-    - "$HOME/.choosenim/toolchains/nim-0.19.4"
+    - "$HOME/.choosenim/toolchains/nim-0.19.6"
+    - "$HOME/.choosenim/toolchains/nim-0.20.0"
 
 if: tag IS blank
 
@@ -29,7 +32,7 @@ script:
   - set -e
   - nimble develop -y
   - nimble binary
-  - 7z a feud-${TRAVIS_TAG}.zip feud.exe feud.ini boehmgc.dll plugins/*.dll plugins/server/*.dll plugins/server/*.xml
+  - 7z a feud-${TRAVIS_TAG}.zip feud.exe feud.ini boehmgc.dll plugins/*.dll plugins/server/*.dll
 
 before_deploy:
   - git config --local user.name "${GIT_TAG_USER_NAME}"
@@ -47,3 +50,4 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
+    condition: $BRANCH=0.20.0

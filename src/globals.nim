@@ -25,7 +25,7 @@ type
     onNotify*: proc(plg: var Plugin, cmd: var CmdData)
 
     cindex*: HashSet[string]
-    callbacks*: TableRef[string, proc(plg: var Plugin, cmd: var CmdData)]
+    callbacks*: Table[string, proc(plg: var Plugin, cmd: var CmdData)]
     pluginData*: pointer
 
   Run* = enum
@@ -51,7 +51,7 @@ type
 
     tick*: int
     pmonitor*: ptr PluginMonitor
-    plugins*: TableRef[string, Plugin]
-    pluginData*: TableRef[string, pointer]
+    plugins*: Table[string, Plugin]
+    pluginData*: Table[string, pointer]
 
   FeudException* = object of Exception

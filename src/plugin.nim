@@ -146,7 +146,9 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
     ctx.notify(ctx, &"Plugin '{name}' unloaded")
 
 proc notifyPlugins*(ctx: var Ctx, cmd: var CmdData) =
-  for pl in ctx.plugins.keys():
+  let
+    pkeys = toSeq(ctx.plugins.keys())
+  for pl in pkeys:
     var
       plg = ctx.plugins[pl]
     cmd.failed = false
@@ -163,9 +165,6 @@ proc notifyPlugins*(ctx: var Ctx, cmd: var CmdData) =
   echo cmd.params[0]
 
 proc initPlugins*(ctx: var Ctx, path: string) =
-  ctx.plugins = newTable[string, Plugin]()
-  ctx.pluginData = newTable[string, pointer]()
-
   ctx.pmonitor = newShared[PluginMonitor]()
   ctx.pmonitor[].lock.initLock()
   ctx.pmonitor[].run = executing
@@ -277,11 +276,9 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       ctx.notify(ctx, &"Plugin '{plg.name}' dll copy failed")
       return
 
-  echo plg.path
   plg.handle = plg.path.loadLib()
   plg.cindex.init()
   plg.dependents.init()
-  plg.callbacks = newTable[string, proc(plg: var Plugin, cmd: var CmdData)]()
 
   if plg.handle.isNil:
     ctx.notify(ctx, &"Plugin '{plg.name}' failed to load")
@@ -296,7 +293,9 @@ proc stopPlugins*(ctx: var Ctx) =
     ctx.pmonitor[].run = stopped
 
   while ctx.plugins.len != 0:
-    for pl in ctx.plugins.keys():
+    let
+      pkeys = toSeq(ctx.plugins.keys())
+    for pl in pkeys:
       ctx.unloadPlugin(pl)
 
   gThread.joinThread()
@@ -326,7 +325,9 @@ proc reloadPlugins(ctx: var Ctx) =
       ctx.plugins[i].initPlugin()
 
 proc tickPlugins(ctx: var Ctx) =
-  for pl in ctx.plugins.keys():
+  let
+    pkeys = toSeq(ctx.plugins.keys())
+  for pl in pkeys:
     var
       plg = ctx.plugins[pl]
       cmd = new(CmdData)
@@ -367,7 +368,9 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
           else:
             ctx.notify(ctx, &"Plugin '{cmd.params[i]}' not found")
       else:
-        for pl in ctx.plugins.keys():
+        let
+          pkeys = toSeq(ctx.plugins.keys())
+        for pl in pkeys:
           ctx.unloadPlugin(pl)
     of "presume":
       withLock ctx.pmonitor[].lock:
@@ -383,7 +386,9 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
       ctx.notify(ctx, &"Plugin monitor exited")
     else:
       cmd.failed = true
-      for pl in ctx.plugins.keys():
+      let
+        pkeys = toSeq(ctx.plugins.keys())
+      for pl in pkeys:
         var
           plg = ctx.plugins[pl]
           ccmd = new(CmdData)

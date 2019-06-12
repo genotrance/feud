@@ -4,7 +4,7 @@ import "../../src"/pluginapi
 
 type
   Aliases = ref object
-    atable: TableRef[string, string]
+    atable: Table[string, string]
 
 proc getAliases(plg: var Plugin): Aliases =
   return getCtxData[Aliases](plg)
@@ -60,8 +60,6 @@ feudPluginLoad:
   var
     aliases = plg.getAliases()
 
-  if aliases.atable.isNil:
-    aliases.atable = newTable[string, string]()
-  else:
+  if aliases.atable.len != 0:
     for alias in aliases.atable.keys():
       plg.setupAlias(alias)

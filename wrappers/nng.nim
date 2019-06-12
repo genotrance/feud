@@ -38,6 +38,8 @@ when defined(Windows):
     cDefine("NNG_PLATFORM_WINDOWS")
     cDefine("_WIN32_WINNT", "0x600")
     cDefine("InterlockedAddNoFence64", "_InterlockedAdd64")
+    cDefine("InterlockedDecrementRelease64", "_InterlockedDecrement64")
+    cDefine("InterlockedIncrementAcquire64", "_InterlockedIncrement64")
 
   cCompile(nngDir/"src/platform/windows")
 
