@@ -1,4 +1,6 @@
-import os, parsexml, sequtils, streams, strformat, strutils, tables, xmltree
+import os, parsexml, sequtils, streams, strtabs, strformat, strutils, tables
+
+import xml
 
 import "../../src"/pluginapi
 
@@ -32,72 +34,53 @@ const
 type
   Lang = ref object
     name: string
-    lexer: int
-    lexName: string
     ext: seq[string]
     commentLine: string
     keywords: seq[string]
 
-var
-  gLangs = newTable[string, Lang]()
+const
+  gLangs = (block:
+    var
+      ltable = initTable[string, Lang](initialsize = 256)
+      lang: Lang
+      langfile = currentSourcePath.parentDir()/"langs.model.xml"
 
-proc addLang(plg: var Plugin, lang: Lang) =
-  for ext in lang.ext:
-    gLangs[ext] = lang
+    doAssert langfile.fileExists(), "Failed to find " & langfile
 
-proc initLangs(plg: var Plugin) =
-  var
-    lang: Lang
+    var
+      langdata = langfile.staticRead()
+      x = langdata.parseXml()
 
-    langfile = getAppDir()/"plugins"/"server"/"langs.model.xml"
-
-  if not langfile.fileExists():
-    echo "Failed to find " & langfile
-    return
-
-  var
-    langstream = langfile.newFileStream(fmRead)
-    x: XmlParser
-
-  x.open(langstream, langfile)
-
-  while true:
-    x.next()
-    case x.kind
-    of xmlElementOpen:
-      if x.elementName == "Language":
-        if not lang.isNil and lang.ext.len != 0 and lang.lexer != 0:
-          plg.addLang(lang)
+    for ls in x.children:
+      for l in ls.children:
         lang = new(Lang)
-        x.next()
-        while x.kind == xmlAttribute:
-          if x.attrKey == "name":
-            lang.name = x.attrValue
-            let
-              lexerName = "SCLEX_" & lang.name.toUpperAscii
-            if SciDefs.hasKey(lexerName):
-              lang.lexer = SciDefs[lexerName]
-            elif lexMap.hasKey(lang.name):
-              lang.lexer = lexMap[lang.name]
-            if lexName.hasKey(lang.name):
-              lang.lexName = lexName[lang.name]
-            else:
-              lang.lexName = lang.name
-          elif x.attrValue.len != 0:
-            case x.attrKey
-            of "ext":
-              lang.ext = x.attrValue.split(' ')
-            of "commentLine":
-              lang.commentLine = x.attrValue
-          x.next()
-    of xmlCharData:
-      lang.keywords.add x.charData
-    of xmlEof:
-      break
-    else:
-      discard
+        lang.name = l.attr("name")
+        if lang.name.len != 0:
+          lang.ext = l.attr("ext").split(' ')
+          lang.commentLine = l.attr("commentLine")
 
-  x.close()
+          for kw in l.children:
+            lang.keywords.add kw.text
+
+          for ext in lang.ext:
+            ltable[ext] = lang
+
+    ltable
+  )
+
+proc getLangLexer(lang: Lang): int =
+  let
+    lexerName = "SCLEX_" & lang.name.toUpperAscii
+  if SciDefs.hasKey(lexerName):
+    result = SciDefs[lexerName]
+  elif lexMap.hasKey(lang.name):
+    result = lexMap[lang.name]
+
+proc getLangLexerName(lang: Lang): string =
+  if lexName.hasKey(lang.name):
+    result = lexName[lang.name]
+  else:
+    result = lang.name
 
 proc getLang(plg: var Plugin, cmd: var CmdData): Lang =
   if cmd.params.len != 0:
@@ -129,25 +112,18 @@ proc setLexer(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     lang = plg.getLang(cmd)
 
   if not lang.isNil:
-    if lang.lexer != plg.getLexer():
+    if lang.getLangLexer() != plg.getLexer():
       plg.ctx.notify(plg.ctx, &"Set language to {lang.name} for '{cmd.params[0].extractFilename()}'")
 
     plg.resetLexer(cmd)
-    discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, lang.lexer)
+    discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, lang.getLangLexer())
     for i in 0 .. lang.keywords.len-1:
       discard plg.ctx.msg(plg.ctx, SCI_SETKEYWORDS, i, lang.keywords[i].cstring)
 
-    cmd.returned.add lang.lexName
+    cmd.returned.add lang.getLangLexerName()
   else:
     plg.resetLexer(cmd)
   
 feudPluginDepends(["window"])
 
-feudPluginLoad:
-  plg.initLangs()
-
-if isMainModule:
-  var
-    plg = new(Plugin)
-
-  plg.initLangs()
+feudPluginLoad()

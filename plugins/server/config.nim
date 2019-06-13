@@ -5,8 +5,8 @@ import "../../src"/pluginapi
 type
   Config = ref object
     commands: seq[string]
-    hooks: TableRef[string, seq[string]]
-    settings: TableRef[string, string]
+    hooks: Table[string, seq[string]]
+    settings: Table[string, string]
 
 let
   baseName = "feud.ini"
@@ -53,8 +53,6 @@ proc config(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     config = plg.getConfig()
 
   config.commands = @[]
-  config.hooks = newTable[string, seq[string]]()
-  config.settings = newTable[string, string]()
 
   plg.loadConfigFile()
 
