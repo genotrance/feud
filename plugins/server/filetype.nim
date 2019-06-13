@@ -1,8 +1,8 @@
 import os, parsexml, sequtils, streams, strtabs, strformat, strutils, tables
 
-import "../../src"/pluginapi
+import xml
 
-import "filetype"/xml
+import "../../src"/pluginapi
 
 const
   lexMap = {

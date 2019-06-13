@@ -6,7 +6,6 @@ language: c
 env:
   - BRANCH=0.19.6
   - BRANCH=0.20.0
-  - BRANCH=devel
 
 cache:
   directories:
