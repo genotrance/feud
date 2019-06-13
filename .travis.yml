@@ -49,4 +49,4 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
-    condition: $BRANCH=0.20.0
+    condition: $BRANCH = 0.20.0
