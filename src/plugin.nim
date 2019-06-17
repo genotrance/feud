@@ -181,6 +181,10 @@ proc initPlugins*(ctx: var Ctx, path: string) =
 
   createThread(gThread, monitorPlugins, ctx.pmonitor)
 
+  var
+    cmd = newCmdData("version")
+  ctx.handleCommand(ctx, cmd)
+
 proc initPlugin(plg: var Plugin) =
   if plg.onLoad.isNil:
     var
@@ -340,6 +344,14 @@ proc tickPlugins(ctx: var Ctx) =
       if cmd.failed:
         ctx.notify(ctx, &"Plugin '{plg.name}' failed in 'feudPluginTick()'")
 
+proc getVersion(): string =
+  const
+    execResult = gorgeEx("git rev-parse HEAD")
+  when execResult[0].len > 0 and execResult[1] == 0:
+    result = execResult[0].strip()
+  else:
+    result ="couldn't determine git hash"
+
 proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
   if cmd.params.len == 0:
     cmd.failed = true
@@ -384,6 +396,9 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
       withLock ctx.pmonitor[].lock:
         ctx.pmonitor[].run = stopped
       ctx.notify(ctx, &"Plugin monitor exited")
+    of "version":
+      ctx.notify(ctx,
+        &"Feud {getVersion()}\ncompiled on {CompileDate} {CompileTime} with Nim v{NimVersion}")
     else:
       cmd.failed = true
       let
