@@ -174,12 +174,12 @@ proc notifyClient(plg: var Plugin, cmd: var CmdData) =
     return
 
   var
-    mode = ""
+    mode: PluginMode
 
   withLock plg.ctx.pmonitor[].lock:
-    mode = plg.ctx.pmonitor[].path
+    mode = plg.ctx.pmonitor[].mode
 
-  if mode == "server":
+  if mode == server:
     plg.sendRemote(cmd)
 
 feudPluginLoad()
@@ -191,13 +191,13 @@ feudPluginTick:
   var
     premote = plg.getRemote()
     data = plg.readRemote()
-    mode = ""
+    mode: PluginMode
 
   withLock plg.ctx.pmonitor[].lock:
-    mode = plg.ctx.pmonitor[].path
+    mode = plg.ctx.pmonitor[].mode
 
   if data.len != 0:
-    if mode == "server":
+    if mode == server:
       for i in data:
         var
           cmd = newCmdData(i)
@@ -205,7 +205,7 @@ feudPluginTick:
 
         cmd = newCmdData("ack")
         plg.sendRemote(cmd)
-    else:
+    elif mode == client:
       for i in data:
         if i == "ack":
           withLock premote[].lock:

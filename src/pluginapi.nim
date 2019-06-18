@@ -3,7 +3,7 @@ import macros, os, sets, strformat, strutils, tables
 import nimterop/[cimport, git]
 
 import "."/[globals, utils]
-export CmdData, Plugin, Ctx
+export CmdData, Plugin, PluginMode, Ctx
 export utils
 
 # Scintilla constants

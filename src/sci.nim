@@ -42,7 +42,7 @@ proc feudStart*(cmds: seq[string]) =
   ctx.cli = cmds
 
   initScintilla()
-  ctx.initPlugins("server")
+  ctx.initPlugins(server)
 
   while ctx.run == executing:
     ctx.syncPlugins()

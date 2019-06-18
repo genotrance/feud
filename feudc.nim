@@ -91,17 +91,17 @@ proc main(
       else:
         &"tcp://{ip}:3917"
 
-    client =
-      if ip.len == 0:
-        "ipc://tmp/feudc"
-      else:
-        &"tcp://*:3918"
+#    client =
+#      if ip.len == 0:
+#        "ipc://tmp/feudc"
+#      else:
+#        &"tcp://*:3918"
 
     thread: Thread[void]
 
   ctx.handleCommand = handleCommand
 
-  ctx.initPlugins("client")
+  ctx.initPlugins(client)
 
   while not ctx.ready:
     ctx.syncPlugins()

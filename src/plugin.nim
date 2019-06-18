@@ -49,7 +49,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
     delay = 200
 
   withLock pmonitor[].lock:
-    path = pmonitor[].path
+    path = $(pmonitor[].mode)
 
   while true:
     defer:
@@ -164,11 +164,11 @@ proc notifyPlugins*(ctx: var Ctx, cmd: var CmdData) =
 
   echo cmd.params[0]
 
-proc initPlugins*(ctx: var Ctx, path: string) =
+proc initPlugins*(ctx: var Ctx, mode: PluginMode) =
   ctx.pmonitor = newShared[PluginMonitor]()
   ctx.pmonitor[].lock.initLock()
   ctx.pmonitor[].run = executing
-  ctx.pmonitor[].path = path
+  ctx.pmonitor[].mode = mode
 
   ctx.pmonitor[].load = @[]
   ctx.pmonitor[].processed.init()

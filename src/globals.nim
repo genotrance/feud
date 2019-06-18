@@ -28,13 +28,16 @@ type
     callbacks*: Table[string, proc(plg: var Plugin, cmd: var CmdData)]
     pluginData*: pointer
 
+  PluginMode* = enum
+    server, client
+
   Run* = enum
     stopped, paused, executing
 
   PluginMonitor* = object
     lock*: Lock
     run*: Run
-    path*: string
+    mode*: PluginMode
     load*: seq[string]
     init*: seq[string]
     processed*: HashSet[string]
