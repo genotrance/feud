@@ -212,8 +212,6 @@ proc initPlugin(plg: var Plugin) =
       if not plg.ctx.plugins.hasKey(dep):
         if once:
           plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' dependency '{dep}' not loaded")
-        withLock plg.ctx.pmonitor[].lock:
-          plg.ctx.pmonitor[].init.add plg.name
         return
 
     plg.onLoad = plg.handle.symAddr("onLoad").toCallback()
@@ -309,14 +307,11 @@ proc stopPlugins*(ctx: var Ctx) =
 proc reloadPlugins(ctx: var Ctx) =
   var
     load: seq[string]
-    init: seq[string]
 
   withLock ctx.pmonitor[].lock:
     load = ctx.pmonitor[].load
-    init = ctx.pmonitor[].init
 
     ctx.pmonitor[].load = @[]
-    ctx.pmonitor[].init = @[]
 
   for i in load:
     if i.fileExists():
@@ -324,8 +319,8 @@ proc reloadPlugins(ctx: var Ctx) =
     else:
       ctx.notify(ctx, i)
 
-  for i in init:
-    if ctx.plugins.hasKey(i):
+  for i in ctx.plugins.keys():
+    if ctx.plugins[i].onLoad.isNil:
       ctx.plugins[i].initPlugin()
 
 proc tickPlugins(ctx: var Ctx) =

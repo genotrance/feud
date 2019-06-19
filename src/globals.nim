@@ -39,7 +39,6 @@ type
     run*: Run
     mode*: PluginMode
     load*: seq[string]
-    init*: seq[string]
     processed*: HashSet[string]
     ready*: bool
 
