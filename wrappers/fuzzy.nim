@@ -7,9 +7,10 @@ const
   fuzFile = fuzDir/"fts_fuzzy_match.h"
 
 static:
+  cDebug()
   if not fileExists(fuzFile):
     downloadUrl("https://github.com/forrestthewoods/lib_fts/raw/master/code/fts_fuzzy_match.h", fuzDir)
 
 {.passC: "--std=c++11 -DFTS_FUZZY_MATCH_IMPLEMENTATION".}
 
-proc fuzzy_match*(pattern, str: cstring, outScore: var cint): bool {.importcpp: "fts::fuzzy_match(@)", header: fuzFile.}
+c2nimport(fuzFile, flags = "--cpp")

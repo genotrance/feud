@@ -5,12 +5,12 @@ language: c
 
 env:
   - BRANCH=0.19.6
-  - BRANCH=0.20.0
+  - BRANCH=0.20.2
 
 cache:
   directories:
     - "$HOME/.choosenim/toolchains/nim-0.19.6"
-    - "$HOME/.choosenim/toolchains/nim-0.20.0"
+    - "$HOME/.choosenim/toolchains/nim-0.20.2"
 
 if: tag IS blank
 
@@ -30,7 +30,7 @@ install:
 script:
   - set -e
   - nimble develop -y
-  - nimble release
+  - nimble binary
   - 7z a feud-${TRAVIS_TAG}.zip feud.exe feud.ini boehmgc64.dll plugins/*.dll plugins/server/*.dll
 
 before_deploy:
@@ -49,4 +49,4 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
-    condition: $BRANCH = 0.20.0
+    condition: $BRANCH = 0.20.2
