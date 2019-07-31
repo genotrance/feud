@@ -7,7 +7,8 @@ license     = "MIT"
 
 # Dependencies
 
-requires "nim >= 0.19.0", "nimterop >= 0.1.0", "winim >= 2.5.2", "cligen >= 0.9.17", "xml >= 0.1.2"
+requires "nim >= 0.19.0", "nimterop >= 0.1.0", "shared >= 0.1.0"
+requires "cligen >= 0.9.17", "winim >= 2.5.2", "xml >= 0.1.2"
 
 import strutils
 

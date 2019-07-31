@@ -1,3 +1,5 @@
+import shared/seq
+
 import dynlib, locks, os, osproc, sequtils, sets, strformat, strutils, tables, times
 
 when defined(Windows):
@@ -11,13 +13,12 @@ var
 template tryCatch(body: untyped) {.dirty.} =
   var
     ret {.inject.} = true
-  when defined(release):
-    try:
-      body
-    except:
-      ret = false
-  else:
+  try:
     body
+  except:
+    when not defined(release):
+      echo getStackTrace().strip()
+    ret = false
 
 when not defined(binary):
   proc dll(sourcePath: string): string =
@@ -26,21 +27,21 @@ when not defined(binary):
 
     result = dir / (DynlibFormat % name)
 
-proc sourceChanged(sourcePath, dllPath: string): bool =
-  let
-    dllTime = dllPath.getLastModificationTime()
-
-  if sourcePath.getLastModificationTime() > dllTime:
-    result = true
-  else:
+  proc sourceChanged(sourcePath, dllPath: string): bool =
     let
-      depDir = sourcePath.parentDir() / sourcePath.splitFile().name
+      dllTime = dllPath.getLastModificationTime()
 
-    if depDir.dirExists():
-      for dep in toSeq(walkFiles(depDir/"*.nim")):
-        if dep.getLastModificationTime() > dllTime:
-          result = true
-          break
+    if sourcePath.getLastModificationTime() > dllTime:
+      result = true
+    else:
+      let
+        depDir = sourcePath.parentDir() / sourcePath.splitFile().name
+
+      if depDir.dirExists():
+        for dep in toSeq(walkFiles(depDir/"*.nim")):
+          if dep.getLastModificationTime() > dllTime:
+            result = true
+            break
 
 proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
   var
@@ -79,13 +80,34 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
         pmonitor[].ready = true
         delay = 2000
 
+    let
+      allowF = base/"allow.ini"
+      blockF = base/"block.ini"
+      allowed =
+        if allowF.fileExists():
+          allowF.readFile().splitLines()
+        else:
+          @[]
+      blocked =
+        if blockF.fileExists():
+          blockF.readFile().splitLines()
+        else:
+          @[]
+
     when defined(binary):
       for dllPath in xPaths:
         let
           name = dllPath.splitFile().name
+
         withLock pmonitor[].lock:
+          if (allowed.len != 0 and name notin allowed) or
+              (blocked.len != 0 and name in blocked):
+            if name notin pmonitor[].processed:
+              pmonitor[].processed.add name
+            continue
+
           if name notin pmonitor[].processed:
-            pmonitor[].processed.incl name
+            pmonitor[].processed.add name
             pmonitor[].load.add &"{dllPath}"
     else:
       for sourcePath in xPaths:
@@ -93,6 +115,13 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
           dllPath = sourcePath.dll
           dllPathNew = dllPath & ".new"
           name = sourcePath.splitFile().name
+
+        if (allowed.len != 0 and name notin allowed) or
+            (blocked.len != 0 and name in blocked):
+          withLock pmonitor[].lock:
+            if name notin pmonitor[].processed:
+              pmonitor[].processed.add name
+          continue
 
         if not dllPath.fileExists() or sourcePath.sourceChanged(dllPath):
           var
@@ -108,17 +137,16 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             sourcePath.getLastModificationTime() > dllPathNew.getLastModificationTime():
             (output, exitCode) = execCmdEx(&"nim c --app:lib -o:{dllPath}.new {relbuild} {sourcePath}")
           if exitCode != 0:
-            withLock pmonitor[].lock:
-              pmonitor[].load.add &"{output}\nPlugin compilation failed for {sourcePath}"
+            pmonitor[].load.add &"{output}\nPlugin compilation failed for {sourcePath}"
           else:
             withLock pmonitor[].lock:
               if name notin pmonitor[].processed:
-                pmonitor[].processed.incl name
+                pmonitor[].processed.add name
               pmonitor[].load.add &"{dllPath}.new"
         else:
           withLock pmonitor[].lock:
             if name notin pmonitor[].processed:
-              pmonitor[].processed.incl name
+              pmonitor[].processed.add name
               pmonitor[].load.add &"{dllPath}"
 
 proc unloadPlugin(ctx: var Ctx, name: string) =
@@ -169,9 +197,6 @@ proc initPlugins*(ctx: var Ctx, mode: PluginMode) =
   ctx.pmonitor[].lock.initLock()
   ctx.pmonitor[].run = executing
   ctx.pmonitor[].mode = mode
-
-  ctx.pmonitor[].load = @[]
-  ctx.pmonitor[].processed.init()
 
   ctx.notify = proc(ctx: var Ctx, msg: string) =
     var
@@ -302,6 +327,9 @@ proc stopPlugins*(ctx: var Ctx) =
 
   gThread.joinThread()
 
+  ctx.pmonitor[].load.free()
+  ctx.pmonitor[].processed.free()
+
   freeShared(ctx.pmonitor)
 
 proc reloadPlugins(ctx: var Ctx) =
@@ -309,9 +337,9 @@ proc reloadPlugins(ctx: var Ctx) =
     load: seq[string]
 
   withLock ctx.pmonitor[].lock:
-    load = ctx.pmonitor[].load
+    load = ctx.pmonitor[].load.toSequence()
 
-    ctx.pmonitor[].load = @[]
+    ctx.pmonitor[].load.clear()
 
   for i in load:
     if i.fileExists():
@@ -363,10 +391,9 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
       if cmd.params.len > 1:
         withLock ctx.pmonitor[].lock:
           for i in 1 .. cmd.params.len-1:
-            ctx.pmonitor[].processed.excl cmd.params[i]
+            ctx.pmonitor[].processed.remove cmd.params[i]
       else:
-        withLock ctx.pmonitor[].lock:
-          ctx.pmonitor[].processed.clear()
+        ctx.pmonitor[].processed.clear()
     of "punload":
       if cmd.params.len > 1:
         for i in 1 .. cmd.params.len-1:

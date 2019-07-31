@@ -123,6 +123,8 @@ proc main(
 
   thread.joinThread()
 
+  ctx.stopPlugins()
+
 when isMainModule:
   dispatch(main, help = {
     "ip": "IP address of remote server",

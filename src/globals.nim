@@ -1,5 +1,7 @@
 import segfaults, dynlib, locks, sets, tables
 
+import shared/seq
+
 type
   CmdData* = ref object
     params*: seq[string]
@@ -38,8 +40,8 @@ type
     lock*: Lock
     run*: Run
     mode*: PluginMode
-    load*: seq[string]
-    processed*: HashSet[string]
+    load*: SharedSeq[string]
+    processed*: SharedSeq[string]
     ready*: bool
 
   Ctx* = ref object
