@@ -1,4 +1,4 @@
-import macros, os, sets, strformat, strutils, tables
+import macros, os, sets, strutils, tables
 
 import nimterop/[cimport, git]
 
@@ -42,12 +42,33 @@ var
 static:
   ctcallbacks.init()
 
+macro tryCatch(body: untyped): untyped =
+  if body[^1].kind == nnkStmtList:
+    var
+      tryStmt = nnkTryStmt.newTree(
+        body[^1],
+        nnkExceptBranch.newTree(
+          nnkStmtList.newTree(
+            nnkCommand.newTree(
+              newIdentNode("echo"),
+              nnkCall.newTree(
+                newIdentNode("getStackTrace")
+              )
+            )
+          )
+        )
+      )
+    body[^1] = tryStmt
+
 macro feudCallback*(body): untyped =
   if body.kind == nnkProcDef:
     ctcallbacks.incl $body[0]
 
     body.addPragma(ident("exportc"))
     body.addPragma(ident("dynlib"))
+
+    tryCatch:
+      body
 
   result = body
 
@@ -59,7 +80,10 @@ template feudPluginLoad*(body: untyped) {.dirty.} =
     bind callbacks
     plg.cindex = callbacks
 
-    body
+    try:
+      body
+    except:
+      echo getStackTrace()
 
 template feudPluginLoad*() {.dirty.} =
   feudPluginLoad:
@@ -67,15 +91,24 @@ template feudPluginLoad*() {.dirty.} =
 
 template feudPluginUnload*(body: untyped) {.dirty.} =
   proc onUnload*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
-    body
+    try:
+      body
+    except:
+      echo getStackTrace()
 
 template feudPluginTick*(body: untyped) {.dirty.} =
   proc onTick*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
-    body
+    try:
+      body
+    except:
+      echo getStackTrace()
 
 template feudPluginNotify*(body: untyped) {.dirty.} =
   proc onNotify*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
-    body
+    try:
+      body
+    except:
+      echo getStackTrace()
 
 template feudPluginDepends*(deps) =
   proc onDepends*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =

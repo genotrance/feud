@@ -2,7 +2,7 @@ import ospaths, strutils
 
 let
   feudRun = "cmd /c start feud"
-  feudCRun = "cmd /c feudc"
+  feudCRun = "cmd /c ..\\feudc"
 
 proc execFeudC(cmds: seq[string]): string =
   var
@@ -21,8 +21,8 @@ proc execFeudC(cmds: seq[string]): string =
 proc execFeudC(cmd: string): string =
   return execFeudC(@[cmd])
 
-proc sleep(t: float) =
-  exec "sleep " & $t
+proc sleep(t: int) =
+  exec "timeout " & $t
 
 exec feudRun
 sleep(2)

@@ -1,4 +1,4 @@
-import os, strutils, tables
+import strutils
 
 import "."/[globals, plugin, utils]
 

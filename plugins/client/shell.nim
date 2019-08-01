@@ -1,4 +1,4 @@
-import os, osproc, strformat, strutils
+import osproc, strformat, strutils
 
 import "../../src"/pluginapi
 

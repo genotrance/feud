@@ -1,4 +1,4 @@
-import os, parsexml, sequtils, streams, strtabs, strformat, strutils, tables
+import os, strformat, strutils, tables
 
 import xml
 

@@ -82,11 +82,11 @@ task binary, "Release binary":
   releaseTask()
 
 task debug, "Debug build":
-  flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert"
+  flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert --lineTrace:on"
   releaseTask()
 
 task dbin, "Debug binaries":
-  flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert"
+  flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert --lineTrace:on"
   binTask()
 
 task test, "Tester":

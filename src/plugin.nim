@@ -2,9 +2,6 @@ import shared/seq
 
 import dynlib, locks, os, osproc, sequtils, sets, strformat, strutils, tables, times
 
-when defined(Windows):
-  import winim/inc/[windef, winuser]
-
 import "."/[globals, utils]
 
 var
@@ -129,7 +126,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
               when defined(release):
                 "--opt:speed"
               else:
-                "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert"
+                "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert --lineTrace:on"
             output = ""
             exitCode = 0
 

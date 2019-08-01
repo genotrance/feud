@@ -1,4 +1,4 @@
-import os, strformat, strutils
+import strformat, strutils
 
 import "../.."/src/pluginapi
 
@@ -149,7 +149,6 @@ proc replace(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
       srch: string
       repl: string
       all = false
-      data: cstring
       ccmd: CmdData
 
     for param in cmd.params:

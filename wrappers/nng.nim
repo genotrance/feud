@@ -1,4 +1,4 @@
-import macros, os, strutils
+import os
 
 import nimterop/[cimport, git]
 

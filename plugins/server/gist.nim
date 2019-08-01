@@ -1,4 +1,4 @@
-import os, httpcore, httpclient, json, strformat, strutils, uri
+import os, httpcore, httpclient, strformat, strutils, uri
 
 import "../../src"/pluginapi
 

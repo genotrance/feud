@@ -1,4 +1,4 @@
-import segfaults, dynlib, locks, sets, tables
+import dynlib, locks, sets, tables
 
 import shared/seq
 
