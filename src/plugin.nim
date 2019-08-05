@@ -13,9 +13,9 @@ template tryCatch(body: untyped) {.dirty.} =
   try:
     body
   except:
-    when not defined(release):
-      echo getStackTrace().strip()
     ret = false
+    when not defined(release):
+      raise getCurrentException()
 
 when not defined(binary):
   proc dll(sourcePath: string): string =
@@ -301,7 +301,6 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       return
 
   plg.handle = plg.path.loadLib()
-  plg.cindex.init()
   plg.dependents.init()
 
   if plg.handle.isNil:

@@ -26,7 +26,7 @@ type
     onTick*: proc(plg: var Plugin, cmd: var CmdData)
     onNotify*: proc(plg: var Plugin, cmd: var CmdData)
 
-    cindex*: HashSet[string]
+    cindex*: seq[string]
     callbacks*: Table[string, proc(plg: var Plugin, cmd: var CmdData)]
     pluginData*: pointer
 

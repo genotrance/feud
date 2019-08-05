@@ -1,4 +1,4 @@
-import deques, os, sequtils, sets, strformat, strutils, tables, times
+import deques, os, sets, strformat, strutils, tables, times
 
 import "../.."/src/pluginapi
 import "../.."/wrappers/fuzzy

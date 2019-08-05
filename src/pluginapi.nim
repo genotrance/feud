@@ -1,4 +1,4 @@
-import macros, os, sets, strutils, tables
+import macros, os, strutils, tables
 
 import nimterop/[cimport, git]
 
@@ -37,10 +37,7 @@ const SciDefs* = (block:
 
 # Find callbacks
 var
-  ctcallbacks {.compiletime.}: HashSet[string]
-
-static:
-  ctcallbacks.init()
+  ctcallbacks {.compiletime.}: seq[string]
 
 macro tryCatch(body: untyped): untyped =
   if body[^1].kind == nnkStmtList:
@@ -62,7 +59,7 @@ macro tryCatch(body: untyped): untyped =
 
 macro feudCallback*(body): untyped =
   if body.kind == nnkProcDef:
-    ctcallbacks.incl $body[0]
+    ctcallbacks.add $body[0]
 
     body.addPragma(ident("exportc"))
     body.addPragma(ident("dynlib"))
