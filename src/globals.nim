@@ -20,14 +20,14 @@ type
     depends*: seq[string]
     dependents*: HashSet[string]
 
-    onDepends*: proc(plg: var Plugin, cmd: var CmdData)
-    onLoad*: proc(plg: var Plugin, cmd: var CmdData)
-    onUnload*: proc(plg: var Plugin, cmd: var CmdData)
-    onTick*: proc(plg: var Plugin, cmd: var CmdData)
-    onNotify*: proc(plg: var Plugin, cmd: var CmdData)
+    onDepends*: proc(plg: Plugin, cmd: CmdData)
+    onLoad*: proc(plg: Plugin, cmd: CmdData)
+    onUnload*: proc(plg: Plugin, cmd: CmdData)
+    onTick*: proc(plg: Plugin, cmd: CmdData)
+    onNotify*: proc(plg: Plugin, cmd: CmdData)
 
     cindex*: seq[string]
-    callbacks*: Table[string, proc(plg: var Plugin, cmd: var CmdData)]
+    callbacks*: Table[string, proc(plg: Plugin, cmd: CmdData)]
     pluginData*: pointer
 
   PluginMode* = enum
@@ -49,9 +49,9 @@ type
     ready*: bool
     cli*: seq[string]
 
-    msg*: proc(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int
-    notify*: proc(ctx: var Ctx, msg: string)
-    handleCommand*: proc(ctx: var Ctx, cmd: var CmdData) {.nimcall.}
+    msg*: proc(ctx: Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int
+    notify*: proc(ctx: Ctx, msg: string)
+    handleCommand*: proc(ctx: Ctx, cmd: CmdData) {.nimcall.}
 
     tick*: int
     pmonitor*: ptr PluginMonitor

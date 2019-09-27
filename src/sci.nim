@@ -14,7 +14,7 @@ proc exitScintilla() =
   if Scintilla_ReleaseResources() == 0:
     raise newException(Exception, "Failed to exit Scintilla")
 
-proc handleCommand*(ctx: var Ctx, cmd: var CmdData) =
+proc handleCommand*(ctx: Ctx, cmd: CmdData) =
   if cmd.params.len != 0:
     case cmd.params[0]:
       of "quit", "exit":

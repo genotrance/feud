@@ -10,7 +10,7 @@ var
 
 gCh.open()
 
-proc handleCommand(ctx: var Ctx, cmd: var CmdData) =
+proc handleCommand(ctx: Ctx, cmd: CmdData) =
   if cmd.params.len != 0:
     if cmd.params[0] == "runHook":
       return
@@ -23,7 +23,7 @@ proc handleCommand(ctx: var Ctx, cmd: var CmdData) =
   else:
     cmd.failed = true
 
-proc handleAck(ctx: var Ctx, command: string) =
+proc handleAck(ctx: Ctx, command: string) =
   var
     (_, val) = command.splitCmd()
     valI = parseInt(val)
@@ -40,7 +40,7 @@ proc handleAck(ctx: var Ctx, command: string) =
       echo "Not all commands ack'd"
       quit(1)
 
-proc messageLoop(ctx: var Ctx) =
+proc messageLoop(ctx: Ctx) =
   var
     run = executing
 

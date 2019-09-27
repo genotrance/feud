@@ -6,16 +6,16 @@ type
   Aliases = ref object
     atable: Table[string, string]
 
-proc getAliases(plg: var Plugin): Aliases =
+proc getAliases(plg: Plugin): Aliases =
   return getCtxData[Aliases](plg)
 
-proc setupAlias(plg: var Plugin, alias: string) =
+proc setupAlias(plg: Plugin, alias: string) =
   var
     aliases = plg.getAliases()
 
   if not plg.callbacks.hasKey(alias):
     plg.cindex.add alias
-    plg.callbacks[alias] = proc(plg: var Plugin, cmd: var CmdData) =
+    plg.callbacks[alias] = proc(plg: Plugin, cmd: CmdData) =
       var
         command = aliases.atable[alias]
 
@@ -26,7 +26,7 @@ proc setupAlias(plg: var Plugin, alias: string) =
         ccmd = newCmdData(command)
       plg.ctx.handleCommand(plg.ctx, ccmd)
 
-proc alias(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc alias(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     aliases = plg.getAliases()
 

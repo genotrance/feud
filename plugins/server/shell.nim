@@ -2,7 +2,7 @@ import os, osproc, streams, strformat, strutils, times
 
 import "../../src"/pluginapi
 
-proc execLive(plg: var Plugin, cmd: var CmdData) =
+proc execLive(plg: Plugin, cmd: CmdData) =
   when defined(Windows):
     cmd.params = @["cmd", "/c"] & cmd.params
 
@@ -41,14 +41,14 @@ proc execLive(plg: var Plugin, cmd: var CmdData) =
 
   plg.gotoEnd()
 
-proc exec(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc exec(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   plg.execLive(cmd)
 
   var
     ccmd = newCmdData("togglePopup !>")
   plg.ctx.handleCommand(plg.ctx, ccmd)
 
-proc execNew(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc execNew(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     ccmd = newCmdData("newDoc")
   plg.ctx.handleCommand(plg.ctx, ccmd)
@@ -60,7 +60,7 @@ proc execNew(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   ccmd = newCmdData("togglePopup !>")
   plg.ctx.handleCommand(plg.ctx, ccmd)
 
-proc saveToTemp(plg: var Plugin): tuple[tmpfile: string, selection: bool] =
+proc saveToTemp(plg: Plugin): tuple[tmpfile: string, selection: bool] =
   result.tmpfile = getTempDir() / "feud_shell_" & $(getTime().toUnix()) & ".txt"
 
   discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 1.toPtr)
@@ -84,7 +84,7 @@ proc saveToTemp(plg: var Plugin): tuple[tmpfile: string, selection: bool] =
   finally:
     discard plg.ctx.msg(plg.ctx, SCI_SETREADONLY, 0.toPtr)
 
-proc execPipe(plg: var Plugin, cmd: var CmdData, tmpfile: string) =
+proc execPipe(plg: Plugin, cmd: CmdData, tmpfile: string) =
   var
     command =
       when defined(Windows):
@@ -100,7 +100,7 @@ proc execPipe(plg: var Plugin, cmd: var CmdData, tmpfile: string) =
   if tmpfile.tryRemoveFile() == false:
     plg.ctx.notify(plg.ctx, &"Failed to remove {tmpfile}")
 
-proc pipe(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc pipe(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     (tmpfile, selection) = plg.saveToTemp()
 
@@ -112,7 +112,7 @@ proc pipe(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
 
     plg.execPipe(cmd, tmpfile)
 
-proc pipeNew(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc pipeNew(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     (tmpfile, selection) = plg.saveToTemp()
     ccmd = newCmdData("newDoc")

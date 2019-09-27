@@ -9,7 +9,7 @@ proc createPopup(parent: HWND): HWND =
 
   doException result.UpdateWindow() != 0, "UpdateWindow() failed with " & $GetLastError()
 
-proc positionPopup(plg: var Plugin, hwnd: HWND) =
+proc positionPopup(plg: Plugin, hwnd: HWND) =
   var
     ehwnd = hwnd.GetParent
     rect: RECT
@@ -28,7 +28,7 @@ proc positionPopup(plg: var Plugin, hwnd: HWND) =
       pix,
       if hwnd.IsWindowVisible == 1: SWP_SHOWWINDOW else: 0)
 
-proc popupGrabFocus(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc popupGrabFocus(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     hwnd = windows.editors[windows.current].popup
@@ -36,7 +36,7 @@ proc popupGrabFocus(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   if hwnd.IsWindowVisible() == 1:
     msg(plg.ctx, SCI_GRABFOCUS, popup=true)
 
-proc closePopup(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc closePopup(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     hwnd = windows.editors[windows.current].popup
@@ -46,7 +46,7 @@ proc closePopup(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     hwnd.ShowWindow(SW_HIDE)
     msg(plg.ctx, SCI_GRABFOCUS)
 
-proc togglePopup(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc togglePopup(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     hwnd = windows.editors[windows.current].popup
@@ -68,7 +68,7 @@ proc togglePopup(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
 
     hwnd.ShowWindow(SW_SHOW)
 
-proc execPopup(plg: var Plugin) =
+proc execPopup(plg: Plugin) =
   let
     length = msg(plg.ctx, SCI_GETLENGTH, popup=true)
   if length != 0:

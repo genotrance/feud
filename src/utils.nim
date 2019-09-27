@@ -24,10 +24,10 @@ template doException*(cond, msg) =
   if not cond:
     raise newException(FeudException, msg)
 
-proc toCallback*(callback: pointer): proc(plg: var Plugin, cmd: var CmdData) =
+proc toCallback*(callback: pointer): proc(plg: Plugin, cmd: CmdData) =
   if not callback.isNil:
-    result = proc(plg: var Plugin, cmd: var CmdData) =
-      cast[proc(plg: var Plugin, cmd: var CmdData) {.cdecl.}](callback)(plg, cmd)
+    result = proc(plg: Plugin, cmd: CmdData) =
+      cast[proc(plg: Plugin, cmd: CmdData) {.cdecl.}](callback)(plg, cmd)
 
 proc splitCmd*(command: string): tuple[name, val: string] =
   let

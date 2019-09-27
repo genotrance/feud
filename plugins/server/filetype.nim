@@ -82,7 +82,7 @@ proc getLangLexerName(lang: Lang): string =
   else:
     result = lang.name
 
-proc getLang(plg: var Plugin, cmd: var CmdData): Lang =
+proc getLang(plg: Plugin, cmd: CmdData): Lang =
   if cmd.params.len != 0:
     var
       (_, _, ext) = cmd.params[0].splitFile()
@@ -92,22 +92,22 @@ proc getLang(plg: var Plugin, cmd: var CmdData): Lang =
     if gLangs.hasKey(ext):
       result = gLangs[ext]
 
-proc getCommentLine(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getCommentLine(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     lang = plg.getLang(cmd)
 
   if not lang.name.len != 0 and lang.commentLine.len != 0:
     cmd.returned.add lang.commentLine
 
-proc getLexer(plg: var Plugin): int =
+proc getLexer(plg: Plugin): int =
   result = plg.ctx.msg(plg.ctx, SCI_GETLEXER)
 
-proc resetLexer(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc resetLexer(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, SCLEX_NULL)
   for i in 0 .. 8:
     discard plg.ctx.msg(plg.ctx, SCI_SETKEYWORDS, i, "".cstring)
 
-proc setLexer(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc setLexer(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     lang = plg.getLang(cmd)
 

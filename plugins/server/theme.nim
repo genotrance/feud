@@ -15,7 +15,7 @@ proc toBgr(rgb: string): int =
 const
   gBold = @["COMMENTDOC", "COMMENTLINEDOC", "OPERATOR"]
 
-proc doSet(plg: var Plugin, commands: string) =
+proc doSet(plg: Plugin, commands: string) =
   for command in commands.splitLines():
     let
       command = command.strip()
@@ -30,7 +30,7 @@ template doSet(msgID, wp, lp) =
 template doSet(msgID, wp, lp, popup) =
   discard plg.ctx.msg(plg.ctx, msgID, wp, lp.toPtr, popup)
 
-proc setPopupTheme(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc setPopupTheme(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   let
     fontName = plg.getCbResult("get theme:fontName")
     fontSize = plg.getCbIntResult("get theme:fontSize")
@@ -62,7 +62,7 @@ proc setPopupTheme(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   if indentColor != 0:
     doSet(SCI_SETCARETFORE, caretColor, 0, popup=true)
 
-proc setTheme(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc setTheme(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   let
     lexer =
       if cmd.params.len != 0:

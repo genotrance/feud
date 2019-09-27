@@ -34,16 +34,16 @@ type
     ecache: HashSet[HWND]
     pcache: HashSet[HWND]
 
-proc getWindows(plg: var Plugin): Windows {.inline.} =
+proc getWindows(plg: Plugin): Windows {.inline.} =
   return getPlgData[Windows](plg)
 
-proc getPlugin(ctx: var Ctx): Plugin =
+proc getPlugin(ctx: Ctx): Plugin =
   let
     pl = "window"
   if ctx.plugins.hasKey(pl):
     return ctx.plugins[pl]
 
-proc msg*(ctx: var Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int {.discardable.} =
+proc msg*(ctx: Ctx, msgID: int, wparam: pointer = nil, lparam: pointer = nil, popup = false, windowID = -1): int {.discardable.} =
   var
     plg = ctx.getPlugin()
     windows = plg.getWindows()
@@ -77,7 +77,7 @@ proc toInt(sval: string, ival: var int): bool =
   except:
     discard
 
-proc eMsg(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc eMsg(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   if cmd.params.len != 0:
     var
       spl = cmd.params
@@ -138,7 +138,7 @@ proc setFocus(hwnd: HWND) =
   if editor != 0:
     discard SendMessage(editor, SCI_GRABFOCUS, 0, 0)
 
-proc getWinidFromHwnd(plg: var Plugin, hwnd: HWND): int =
+proc getWinidFromHwnd(plg: Plugin, hwnd: HWND): int =
   result = -1
   var
     windows = plg.getWindows()
@@ -148,13 +148,13 @@ proc getWinidFromHwnd(plg: var Plugin, hwnd: HWND): int =
       result = i
       break
 
-proc getCurrentWindow(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getCurrentWindow(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
 
   cmd.returned.add $(windows.current)
 
-proc setCurrentWindow(plg: var Plugin, hwnd: HWND) =
+proc setCurrentWindow(plg: Plugin, hwnd: HWND) =
   var
     windows = plg.getWindows()
     winid = plg.getWinidFromHwnd(hwnd)
@@ -171,7 +171,7 @@ proc createWindow(parent: HWND = 0, name = ""): HWND =
 
   doException result.UpdateWindow() != 0, "UpdateWindow() failed with " & $GetLastError()
 
-proc setCurrentWindowOnClose(plg: var Plugin, closeid: int) =
+proc setCurrentWindowOnClose(plg: Plugin, closeid: int) =
   var
     windows = plg.getWindows()
 
@@ -185,7 +185,7 @@ proc setCurrentWindowOnClose(plg: var Plugin, closeid: int) =
       if closeid < windows.current:
         windows.current -= 1
 
-proc newWindow(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc newWindow(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     editor = plg.createEditor()
 
@@ -196,7 +196,7 @@ proc newWindow(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     ccmd = newCmdData("runHook postNewWindow")
   plg.ctx.handleCommand(plg.ctx, ccmd)
 
-proc closeWindow(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc closeWindow(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     winid = 0
@@ -217,21 +217,21 @@ proc closeWindow(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     if winid > 0:
       plg.deleteEditor(winid)
 
-proc setTitle(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc setTitle(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     winid = windows.current
   if cmd.params.len != 0:
     SetWindowText(windows.editors[winid].frame, cmd.params[0].cstring)
 
-proc getLastId(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getLastId(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     winid = windows.current
 
   cmd.returned.add $windows.editors[winid].last
 
-proc getDocId(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getDocId(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     winid = windows.current
@@ -246,7 +246,7 @@ proc getDocId(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   else:
     cmd.returned.add $windows.editors[winid].docid
 
-proc setDocId(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc setDocId(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   if cmd.params.len != 0:
     var
       windows = plg.getWindows()

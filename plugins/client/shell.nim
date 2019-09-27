@@ -2,7 +2,7 @@ import osproc, strformat, strutils
 
 import "../../src"/pluginapi
 
-proc exec(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc exec(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     command =
       when defined(Windows):

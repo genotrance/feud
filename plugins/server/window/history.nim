@@ -1,4 +1,4 @@
-proc getPrevHistory(plg: var Plugin) =
+proc getPrevHistory(plg: Plugin) =
   var
     windows = plg.getWindows()
 
@@ -7,7 +7,7 @@ proc getPrevHistory(plg: var Plugin) =
     discard msg(plg.ctx, SCI_GOTOPOS, windows.history[windows.currHist].len, 0.toPtr, popup=true)
     windows.currHist -= 1
 
-proc getNextHistory(plg: var Plugin) =
+proc getNextHistory(plg: Plugin) =
   var
     windows = plg.getWindows()
 
@@ -19,7 +19,7 @@ proc getNextHistory(plg: var Plugin) =
     discard msg(plg.ctx, SCI_SETTEXT, 0, windows.history[windows.currHist].cstring, popup=true)
     discard msg(plg.ctx, SCI_GOTOPOS, windows.history[windows.currHist].len, 0.toPtr, popup=true)
 
-proc addHistory(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc addHistory(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
 
@@ -28,7 +28,7 @@ proc addHistory(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
 
   windows.currHist = windows.history.len-1
 
-proc listHistory(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc listHistory(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
     nf = ""
