@@ -7,7 +7,6 @@ const
   fuzFile = fuzDir/"fts_fuzzy_match.h"
 
 static:
-  cDebug()
   if not fileExists(fuzFile):
     downloadUrl("https://github.com/forrestthewoods/lib_fts/raw/master/code/fts_fuzzy_match.h", fuzDir)
 
