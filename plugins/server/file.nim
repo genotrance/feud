@@ -411,7 +411,7 @@ proc list(plg: Plugin, cmd: CmdData) {.feudCallback.} =
 
   plg.ctx.notify(plg.ctx, lout[0..^2])
 
-proc close(plg: Plugin, cmd: CmdData) {.feudCallback.} =
+proc closeFile(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     docs = plg.getDocs()
 
@@ -442,7 +442,7 @@ proc closeAll(plg: Plugin, cmd: CmdData) {.feudCallback.} =
 
   while docs.doclist.len != 1:
     cmd.params.add $(docs.doclist.len-1)
-    plg.close(cmd)
+    plg.closeFile(cmd)
 
 proc unload(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
@@ -618,7 +618,8 @@ feudPluginLoad:
     "hook onWindowActivate reloadIfChanged",
     "hook postFileSwitch reloadIfChanged",
     "hook postNewWindow open 0",
-    "hook onWindowSavePoint updateModified"
+    "hook onWindowSavePoint updateModified",
+    "alias close closeFile"
   ]:
     var
       ccmd = newCmdData(i)

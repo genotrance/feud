@@ -5,14 +5,16 @@ import "."/[globals, plugin, utils]
 import ".."/wrappers/scintilla
 
 proc initScintilla() =
-  if Scintilla_RegisterClasses(nil) == 0:
-    raise newException(Exception, "Failed to initialize Scintilla")
+  when defined(windows):
+    if Scintilla_RegisterClasses(nil) == 0:
+      raise newException(Exception, "Failed to initialize Scintilla")
 
   discard Scintilla_LinkLexers()
 
 proc exitScintilla() =
-  if Scintilla_ReleaseResources() == 0:
-    raise newException(Exception, "Failed to exit Scintilla")
+  when defined(windows):
+    if Scintilla_ReleaseResources() == 0:
+      raise newException(Exception, "Failed to exit Scintilla")
 
 proc handleCommand*(ctx: Ctx, cmd: CmdData) =
   if cmd.params.len != 0:

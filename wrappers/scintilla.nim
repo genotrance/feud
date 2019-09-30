@@ -16,12 +16,14 @@ when defined(Windows):
   cCompile(sciDir/"win32/*.cxx")
 
   {.passC: "-UWIN32_LEAN_AND_MEAN".}
-  {.passL: "-lgdi32 -luser32 -limm32 -lole32 -luuid -loleaut32 -lmsimg32 -lstdc++".}
+  {.passL: "-static -lgdi32 -luser32 -limm32 -lole32 -luuid -loleaut32 -lmsimg32 -lstdc++".}
 
 when defined(Linux):
   cCompile(sciDir/"gtk/*.cxx")
+  cCompile(sciDir/"gtk/*.c")
 
-  {.passC: \"-DGTK".}
+  {.passC: "-DGTK " & gorge("pkg-config --cflags gtk+-2.0").}
+  {.passL: "-lgmodule-2.0 " & gorge("pkg-config --libs gtk+-2.0").}
 
 cCompile(sciDir/"src/*.cxx")
 cCompile(sciDir/"lexlib/*.cxx")
