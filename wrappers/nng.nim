@@ -6,7 +6,6 @@ const
   nngDir = currentSourcePath().parentDir().parentDir()/"build"/"nng"
 
 static:
-  cDebug()
   gitPull("https://github.com/nanomsg/nng", nngDir, "include/*\nsrc/*")
 
   cDefine("NNG_STATIC_LIB")

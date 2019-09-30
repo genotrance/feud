@@ -14,10 +14,10 @@ let
     getAppDir()/baseName
   ]
 
-proc getConfig(plg: var Plugin): Config =
+proc getConfig(plg: Plugin): Config =
   return getCtxData[Config](plg)
 
-proc loadConfigFile(plg: var Plugin) =
+proc loadConfigFile(plg: Plugin) =
   var
     config = plg.getConfig()
 
@@ -29,7 +29,7 @@ proc loadConfigFile(plg: var Plugin) =
         if sline.len != 0 and sline[0] notin ['#', ';']:
           config.commands.add sline
 
-proc execConfig(plg: var Plugin) =
+proc execConfig(plg: Plugin) =
   var
     config = plg.getConfig()
 
@@ -48,7 +48,7 @@ proc execConfig(plg: var Plugin) =
     for i in countdown(done.len-1, 0):
       config.commands.delete done[i]
 
-proc config(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc config(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     config = plg.getConfig()
 
@@ -56,7 +56,7 @@ proc config(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
 
   plg.loadConfigFile()
 
-proc hook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc hook(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     config = plg.getConfig()
 
@@ -85,7 +85,7 @@ proc hook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
         ccmd = newCmdData("hook " & key)
       plg.ctx.handleCommand(plg.ctx, ccmd)
 
-proc runHook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc runHook(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     config = plg.getConfig()
 
@@ -103,7 +103,7 @@ proc runHook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
           )
         plg.ctx.handleCommand(plg.ctx, cmd)
 
-proc delHook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc delHook(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     config = plg.getConfig()
 
@@ -111,7 +111,7 @@ proc delHook(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     if config.hooks.hasKey(cmd.params[0]):
       config.hooks.del(cmd.params[0])
 
-proc script(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc script(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   for param in cmd.params:
     if param.fileExists():
       for line in param.readFile().splitLines():
@@ -123,7 +123,7 @@ proc script(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
           plg.ctx.handleCommand(plg.ctx, cmd)
           plg.ctx.notify(plg.ctx, sline)
 
-proc get(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc get(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   if cmd.params.len != 0:
     var
       config = plg.getConfig()
@@ -132,7 +132,7 @@ proc get(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     if config.settings.hasKey(name):
       cmd.returned = @[config.settings[name]]
 
-proc set(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc set(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   if cmd.params.len > 0:
     var
       config = plg.getConfig()

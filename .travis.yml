@@ -4,13 +4,11 @@ os:
 language: c
 
 env:
-  - BRANCH=0.19.6
-  - BRANCH=0.20.2
+  - BRANCH=1.0.0
 
 cache:
   directories:
-    - "$HOME/.choosenim/toolchains/nim-0.19.6"
-    - "$HOME/.choosenim/toolchains/nim-0.20.2"
+    - "$HOME/.choosenim/toolchains/nim-1.0.0"
 
 if: tag IS blank
 
@@ -26,6 +24,7 @@ install:
   - export GIT_HASH=$(git log --format=%h -1)
   - export GIT_HASH_FULL=$(git rev-parse HEAD)
   - export TRAVIS_TAG="${BUILD_DATE}-${GIT_HASH}"
+  - sed -i "s/boehmGC_set_all_interior_pointers(0)//" $HOME/.choosenim/toolchains/nim-1.0.0/lib/system/mmdisp.nim
 
 script:
   - set -e
@@ -49,4 +48,3 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
-    condition: $BRANCH = 0.20.2

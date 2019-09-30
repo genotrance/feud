@@ -4,7 +4,7 @@ proc createStatus(parent: HWND): HWND =
     parent, parent, GetModuleHandleW(nil), nil)
   result.SendMessage(WM_SIZE, 0, 0)
 
-proc setupStatus(plg: var Plugin, hwnd: HWND) =
+proc setupStatus(plg: Plugin, hwnd: HWND) =
   var
     srect: Rect
     splits = plg.getCbResult("get window:statusWidths").split(" ")
@@ -27,7 +27,7 @@ proc setupStatus(plg: var Plugin, hwnd: HWND) =
 
     SendMessage(hwnd, SB_SETPARTS, cast[WPARAM](count), cast[LPARAM](addr intsplit))
 
-proc setStatusBarHelper(plg: var Plugin, cmd: var CmdData, exec = false) =
+proc setStatusBarHelper(plg: Plugin, cmd: CmdData, exec = false) =
   var
     windows = plg.getWindows()
     status = windows.editors[windows.current].status
@@ -48,13 +48,13 @@ proc setStatusBarHelper(plg: var Plugin, cmd: var CmdData, exec = false) =
 
     SendMessage(status, SB_SETTEXTA, cast[WPARAM](id), cast[LPARAM](command.cstring))
 
-proc setStatusBar(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc setStatusBar(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   plg.setStatusBarHelper(cmd)
 
-proc setStatusBarCmd(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc setStatusBarCmd(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   plg.setStatusBarHelper(cmd, exec = true)
 
-proc getPosition(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getPosition(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   let
     pos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
     line = plg.ctx.msg(plg.ctx, SCI_LINEFROMPOSITION, pos) + 1
@@ -62,7 +62,7 @@ proc getPosition(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
 
   cmd.returned.add strformat.`&`("R{line} : C{col}")
 
-proc getDocSize(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getDocSize(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
     lstr = ""
@@ -78,7 +78,7 @@ proc getDocSize(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
 
   cmd.returned.add lstr
 
-proc getRatio(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getRatio(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   let
     pos = plg.ctx.msg(plg.ctx, SCI_GETCURRENTPOS)
     length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
@@ -90,7 +90,7 @@ proc getRatio(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
       ""
   )
 
-proc getModified(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getModified(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   cmd.returned.add(
     if plg.ctx.msg(plg.ctx, SCI_GETMODIFY) == 0:
       ""

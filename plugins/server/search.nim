@@ -12,7 +12,7 @@ type
     cppregex: bool
     found: bool
 
-proc unhighlight(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc unhighlight(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     search = getCtxData[Search](plg)
     length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
@@ -20,7 +20,7 @@ proc unhighlight(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   discard plg.ctx.msg(plg.ctx, SCI_INDICATORCLEARRANGE, 0, length.toPtr)
   search.found = false
 
-proc search(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc search(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     search = getCtxData[Search](plg)
     reverse = false
@@ -112,7 +112,7 @@ proc search(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     ccmd = newCmdData("togglePopup search")
     plg.ctx.handleCommand(plg.ctx, ccmd)
 
-proc highlight(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc highlight(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   let
     search = plg.getSelection()
     length = search.len
@@ -142,7 +142,7 @@ proc highlight(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
       for match in matches:
         discard plg.ctx.msg(plg.ctx, SCI_INDICATORFILLRANGE, match, length.toPtr)
 
-proc replace(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc replace(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   if cmd.params.len != 0:
     var
       sparams: seq[string]

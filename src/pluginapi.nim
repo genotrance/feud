@@ -39,9 +39,6 @@ const SciDefs* = (block:
 var
   ctcallbacks {.compiletime.}: HashSet[string]
 
-static:
-  ctcallbacks.init()
-
 macro tryCatch(body: untyped): untyped =
   if body[^1].kind == nnkStmtList:
     var
@@ -76,7 +73,7 @@ const
   callbacks = ctcallbacks
 
 template feudPluginLoad*(body: untyped) {.dirty.} =
-  proc onLoad*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
+  proc onLoad*(plg: Plugin, cmd: CmdData) {.exportc, dynlib.} =
     bind callbacks
     plg.cindex = callbacks
 
@@ -90,31 +87,31 @@ template feudPluginLoad*() {.dirty.} =
     discard
 
 template feudPluginUnload*(body: untyped) {.dirty.} =
-  proc onUnload*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
+  proc onUnload*(plg: Plugin, cmd: CmdData) {.exportc, dynlib.} =
     try:
       body
     except:
       echo getStackTrace()
 
 template feudPluginTick*(body: untyped) {.dirty.} =
-  proc onTick*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
+  proc onTick*(plg: Plugin, cmd: CmdData) {.exportc, dynlib.} =
     try:
       body
     except:
       echo getStackTrace()
 
 template feudPluginNotify*(body: untyped) {.dirty.} =
-  proc onNotify*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
+  proc onNotify*(plg: Plugin, cmd: CmdData) {.exportc, dynlib.} =
     try:
       body
     except:
       echo getStackTrace()
 
 template feudPluginDepends*(deps) =
-  proc onDepends*(plg: var Plugin, cmd: var CmdData) {.exportc, dynlib.} =
+  proc onDepends*(plg: Plugin, cmd: CmdData) {.exportc, dynlib.} =
     plg.depends.add deps
 
-proc getCtxData*[T](plg: var Plugin): T =
+proc getCtxData*[T](plg: Plugin): T =
   if not plg.ctx.pluginData.hasKey(plg.name):
     var
       data = new(T)
@@ -123,7 +120,7 @@ proc getCtxData*[T](plg: var Plugin): T =
 
   result = cast[T](plg.ctx.pluginData[plg.name])
 
-proc freeCtxData*[T](plg: var Plugin) =
+proc freeCtxData*[T](plg: Plugin) =
   if plg.ctx.pluginData.hasKey(plg.name):
     var
       data = cast[T](plg.ctx.pluginData[plg.name])
@@ -131,7 +128,7 @@ proc freeCtxData*[T](plg: var Plugin) =
 
     plg.ctx.pluginData.del(plg.name)
 
-proc getPlgData*[T](plg: var Plugin): T =
+proc getPlgData*[T](plg: Plugin): T =
   if plg.pluginData.isNil:
     var
       data = new(T)
@@ -140,7 +137,7 @@ proc getPlgData*[T](plg: var Plugin): T =
 
   result = cast[T](plg.pluginData)
 
-proc freePlgData*[T](plg: var Plugin) =
+proc freePlgData*[T](plg: Plugin) =
   if not plg.pluginData.isNil:
     var
       data = cast[T](plg.pluginData)
@@ -148,7 +145,7 @@ proc freePlgData*[T](plg: var Plugin) =
 
     plg.pluginData = nil
 
-proc getSelection*(plg: var Plugin): string =
+proc getSelection*(plg: Plugin): string =
   let
     length = plg.ctx.msg(plg.ctx, SCI_GETSELTEXT, 0, nil)
   if length != 0:
@@ -159,12 +156,12 @@ proc getSelection*(plg: var Plugin): string =
     discard plg.ctx.msg(plg.ctx, SCI_GETSELTEXT, 0, data)
     result = ($cast[cstring](data)).strip()
 
-proc gotoEnd*(plg: var Plugin) =
+proc gotoEnd*(plg: Plugin) =
   let
     length = plg.ctx.msg(plg.ctx, SCI_GETLENGTH)
   discard plg.ctx.msg(plg.ctx, SCI_GOTOPOS, length)
 
-proc getCbResult*(plg: var Plugin, command: string): string =
+proc getCbResult*(plg: Plugin, command: string): string =
   var
     cmd = newCmdData(command)
   plg.ctx.handleCommand(plg.ctx, cmd)
@@ -172,7 +169,7 @@ proc getCbResult*(plg: var Plugin, command: string): string =
     if cmd.returned.len != 0 and cmd.returned[0].len != 0:
       return cmd.returned[0]
 
-proc getCbIntResult*(plg: var Plugin, command: string, default = 0): int =
+proc getCbIntResult*(plg: Plugin, command: string, default = 0): int =
   let
     str = plg.getCbResult(command)
 

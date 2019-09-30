@@ -1,4 +1,4 @@
-proc createEditor(plg: var Plugin): Editor =
+proc createEditor(plg: Plugin): Editor =
   var
     windows = plg.getWindows()
 
@@ -16,7 +16,7 @@ proc createEditor(plg: var Plugin): Editor =
   windows.ecache.incl result.editor
   windows.pcache.incl result.popup
 
-proc deleteEditor(plg: var Plugin, winid: int) =
+proc deleteEditor(plg: Plugin, winid: int) =
   var
     windows = plg.getWindows()
 

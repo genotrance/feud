@@ -52,7 +52,7 @@ proc adjustUrl(url: string): string =
 
   return $parsed
 
-proc getGist(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getGist(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     client = newHttpClient(proxy = getProxy())
     success = false
@@ -80,7 +80,7 @@ proc getGist(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
         &"Loaded gist {param}"
     )
 
-proc gist(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc gist(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     client = newHttpClient(proxy = getProxy())
     url = "http://ix.io"

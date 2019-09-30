@@ -2,7 +2,7 @@ import os, strformat, strutils
 
 import "../.."/src/pluginapi
 
-proc toggleComment(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc toggleComment(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     selStart = plg.ctx.msg(plg.ctx, SCI_GETSELECTIONSTART)
     selEnd = plg.ctx.msg(plg.ctx, SCI_GETSELECTIONEND)

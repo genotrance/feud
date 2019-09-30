@@ -1,5 +1,3 @@
-import shared/seq
-
 import dynlib, locks, os, osproc, sequtils, sets, strformat, strutils, tables, times
 
 import "."/[globals, utils]
@@ -13,9 +11,9 @@ template tryCatch(body: untyped) {.dirty.} =
   try:
     body
   except:
-    when not defined(release):
-      echo getStackTrace().strip()
     ret = false
+    when not defined(release):
+      raise getCurrentException()
 
 when not defined(binary):
   proc dll(sourcePath: string): string =
@@ -100,12 +98,12 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
           if (allowed.len != 0 and name notin allowed) or
               (blocked.len != 0 and name in blocked):
             if name notin pmonitor[].processed:
-              pmonitor[].processed.add name
+              pmonitor[].processed.incl name
             continue
 
           if name notin pmonitor[].processed:
-            pmonitor[].processed.add name
-            pmonitor[].load.add &"{dllPath}"
+            pmonitor[].processed.incl name
+            pmonitor[].load.incl &"{dllPath}"
     else:
       for sourcePath in xPaths:
         let
@@ -117,7 +115,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             (blocked.len != 0 and name in blocked):
           withLock pmonitor[].lock:
             if name notin pmonitor[].processed:
-              pmonitor[].processed.add name
+              pmonitor[].processed.incl name
           continue
 
         if not dllPath.fileExists() or sourcePath.sourceChanged(dllPath):
@@ -134,19 +132,19 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             sourcePath.getLastModificationTime() > dllPathNew.getLastModificationTime():
             (output, exitCode) = execCmdEx(&"nim c --app:lib -o:{dllPath}.new {relbuild} {sourcePath}")
           if exitCode != 0:
-            pmonitor[].load.add &"{output}\nPlugin compilation failed for {sourcePath}"
+            pmonitor[].load.incl &"{output}\nPlugin compilation failed for {sourcePath}"
           else:
             withLock pmonitor[].lock:
               if name notin pmonitor[].processed:
-                pmonitor[].processed.add name
-              pmonitor[].load.add &"{dllPath}.new"
+                pmonitor[].processed.incl name
+              pmonitor[].load.incl &"{dllPath}.new"
         else:
           withLock pmonitor[].lock:
             if name notin pmonitor[].processed:
-              pmonitor[].processed.add name
-              pmonitor[].load.add &"{dllPath}"
+              pmonitor[].processed.incl name
+              pmonitor[].load.incl &"{dllPath}"
 
-proc unloadPlugin(ctx: var Ctx, name: string) =
+proc unloadPlugin(ctx: Ctx, name: string) =
   if ctx.plugins.hasKey(name):
     for dep in ctx.plugins[name].dependents:
       ctx.notify(ctx, &"Plugin '{dep}' depends on '{name}' and might crash")
@@ -170,7 +168,7 @@ proc unloadPlugin(ctx: var Ctx, name: string) =
 
     ctx.notify(ctx, &"Plugin '{name}' unloaded")
 
-proc notifyPlugins*(ctx: var Ctx, cmd: var CmdData) =
+proc notifyPlugins*(ctx: Ctx, cmd: CmdData) =
   let
     pkeys = toSeq(ctx.plugins.keys())
   for pl in pkeys:
@@ -189,13 +187,13 @@ proc notifyPlugins*(ctx: var Ctx, cmd: var CmdData) =
 
   echo cmd.params[0]
 
-proc initPlugins*(ctx: var Ctx, mode: PluginMode) =
+proc initPlugins*(ctx: Ctx, mode: PluginMode) =
   ctx.pmonitor = newShared[PluginMonitor]()
   ctx.pmonitor[].lock.initLock()
   ctx.pmonitor[].run = executing
   ctx.pmonitor[].mode = mode
 
-  ctx.notify = proc(ctx: var Ctx, msg: string) =
+  ctx.notify = proc(ctx: Ctx, msg: string) =
     var
       cmd = new(CmdData)
     cmd.params.add msg
@@ -207,7 +205,7 @@ proc initPlugins*(ctx: var Ctx, mode: PluginMode) =
     cmd = newCmdData("version")
   ctx.handleCommand(ctx, cmd)
 
-proc initPlugin(plg: var Plugin) =
+proc initPlugin(plg: Plugin) =
   if plg.onLoad.isNil:
     var
       once = false
@@ -269,7 +267,7 @@ proc initPlugin(plg: var Plugin) =
 
       plg.ctx.notify(plg.ctx, &"Plugin '{plg.name}' loaded (" & toSeq(plg.callbacks.keys()).join(", ") & ")")
 
-proc loadPlugin(ctx: var Ctx, dllPath: string) =
+proc loadPlugin(ctx: Ctx, dllPath: string) =
   var
     plg = new(Plugin)
 
@@ -301,7 +299,6 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
       return
 
   plg.handle = plg.path.loadLib()
-  plg.cindex.init()
   plg.dependents.init()
 
   if plg.handle.isNil:
@@ -312,7 +309,7 @@ proc loadPlugin(ctx: var Ctx, dllPath: string) =
 
     plg.initPlugin()
 
-proc stopPlugins*(ctx: var Ctx) =
+proc stopPlugins*(ctx: Ctx) =
   withLock ctx.pmonitor[].lock:
     ctx.pmonitor[].run = stopped
 
@@ -324,17 +321,17 @@ proc stopPlugins*(ctx: var Ctx) =
 
   gThread.joinThread()
 
-  ctx.pmonitor[].load.free()
-  ctx.pmonitor[].processed.free()
+  ctx.pmonitor[].load.clear()
+  ctx.pmonitor[].processed.clear()
 
   freeShared(ctx.pmonitor)
 
-proc reloadPlugins(ctx: var Ctx) =
+proc reloadPlugins(ctx: Ctx) =
   var
-    load: seq[string]
+    load: HashSet[string]
 
   withLock ctx.pmonitor[].lock:
-    load = ctx.pmonitor[].load.toSequence()
+    load = ctx.pmonitor[].load
 
     ctx.pmonitor[].load.clear()
 
@@ -348,7 +345,7 @@ proc reloadPlugins(ctx: var Ctx) =
     if ctx.plugins[i].onLoad.isNil:
       ctx.plugins[i].initPlugin()
 
-proc tickPlugins(ctx: var Ctx) =
+proc tickPlugins(ctx: Ctx) =
   let
     pkeys = toSeq(ctx.plugins.keys())
   for pl in pkeys:
@@ -372,7 +369,7 @@ proc getVersion(): string =
   else:
     result ="couldn't determine git hash"
 
-proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
+proc handlePluginCommand*(ctx: Ctx, cmd: CmdData) =
   if cmd.params.len == 0:
     cmd.failed = true
     return
@@ -388,7 +385,7 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
       if cmd.params.len > 1:
         withLock ctx.pmonitor[].lock:
           for i in 1 .. cmd.params.len-1:
-            ctx.pmonitor[].processed.remove cmd.params[i]
+            ctx.pmonitor[].processed.excl cmd.params[i]
       else:
         ctx.pmonitor[].processed.clear()
     of "punload":
@@ -439,7 +436,7 @@ proc handlePluginCommand*(ctx: var Ctx, cmd: var CmdData) =
             cmd.failed = false
           break
 
-proc handleCli(ctx: var Ctx) =
+proc handleCli(ctx: Ctx) =
   if ctx.cli.len != 0:
     for command in ctx.cli:
       var
@@ -447,7 +444,7 @@ proc handleCli(ctx: var Ctx) =
       ctx.handleCommand(ctx, cmd)
     ctx.cli = @[]
 
-proc handleReady(ctx: var Ctx) =
+proc handleReady(ctx: Ctx) =
   if not ctx.ready:
     withLock ctx.pmonitor[].lock:
       if ctx.pmonitor[].ready:
@@ -457,7 +454,7 @@ proc handleReady(ctx: var Ctx) =
         ctx.handleCommand(ctx, cmd)
         ctx.handleCli()
 
-proc syncPlugins*(ctx: var Ctx) =
+proc syncPlugins*(ctx: Ctx) =
   ctx.tick += 1
   if not ctx.ready or ctx.tick == 25:
     ctx.tick = 0

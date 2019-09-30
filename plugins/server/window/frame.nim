@@ -1,4 +1,4 @@
-proc resizeFrame(plg: var Plugin, hwnd: HWND) =
+proc resizeFrame(plg: Plugin, hwnd: HWND) =
   let
     status = hwnd.GetDlgItem(hwnd.int32)
     editor = hwnd.GetWindow(GW_CHILD)
@@ -89,7 +89,7 @@ proc registerFrame() =
 proc unregisterFrame() =
   doException UnregisterClass("FeudFrame", GetModuleHandleW(nil)) != 0, "Frame unregistration failed with " & $GetLastError()
 
-proc createFrame(plg: var Plugin): HWND =
+proc createFrame(plg: Plugin): HWND =
   result = CreateWindowEx(
     WS_EX_OVERLAPPEDWINDOW, "FeudFrame", "", WS_OVERLAPPEDWINDOW,
     10, 10, 1200, 800, 0, 0, GetModuleHandleW(nil), cast[LPVOID](plg))

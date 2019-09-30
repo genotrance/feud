@@ -8,7 +8,7 @@ const
     "~": 192, "`": 192, "[": 219, "{": 219, "\\": 220, "|": 220, "]": 221, "}": 221, "'": 222, "\"": 222
   }.toTable()
 
-proc hotkey(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc hotkey(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     windows = plg.getWindows()
   if cmd.params.len == 0:

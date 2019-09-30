@@ -17,7 +17,7 @@ type
     sendBuf: Deque[string]
     ack: int
 
-proc getRemote(plg: var Plugin): ptr Remote =
+proc getRemote(plg: Plugin): ptr Remote =
   return cast[ptr Remote](plg.pluginData)
 
 proc monitorRemote(tparam: tuple[premote: ptr Remote, listen, dial: string]) {.thread.} =
@@ -75,7 +75,7 @@ proc monitorRemote(tparam: tuple[premote: ptr Remote, listen, dial: string]) {.t
 
   discard socket.nng_close()
 
-proc stopRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc stopRemote(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   if plg.pluginData.isNil:
     return
 
@@ -95,7 +95,7 @@ proc stopRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
 
   plg.pluginData = nil
 
-proc initRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc initRemote(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   plg.stopRemote(cmd)
 
   var
@@ -131,10 +131,10 @@ proc initRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
     if premoteCtx[].listen.len != 0:
       plg.ctx.notify(plg.ctx, "Started remote plugin at " & premoteCtx[].listen)
 
-proc restartRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc restartRemote(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   plg.initRemote(cmd)
 
-proc readRemote(plg: var Plugin): seq[string] =
+proc readRemote(plg: Plugin): seq[string] =
   if plg.pluginData.isNil:
     return
 
@@ -147,7 +147,7 @@ proc readRemote(plg: var Plugin): seq[string] =
 
     premote[].recvBuf.clear()
 
-proc sendRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc sendRemote(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   if plg.pluginData.isNil:
     return
 
@@ -157,7 +157,7 @@ proc sendRemote(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
   withLock premote[].lock:
     premote[].sendBuf.addLast cmd.params.join(" ")
 
-proc getAck(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getAck(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   if plg.pluginData.isNil:
     return
 
@@ -169,7 +169,7 @@ proc getAck(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
       premote[].ack -= 1
       cmd.returned = @["ack"]
 
-proc notifyClient(plg: var Plugin, cmd: var CmdData) =
+proc notifyClient(plg: Plugin, cmd: CmdData) =
   if plg.pluginData.isNil:
     return
 

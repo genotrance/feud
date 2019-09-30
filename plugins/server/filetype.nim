@@ -32,7 +32,7 @@ const
   }.toTable()
 
 type
-  Lang = ref object
+  Lang = object
     name: string
     ext: seq[string]
     commentLine: string
@@ -42,7 +42,6 @@ const
   gLangs = (block:
     var
       ltable = initTable[string, Lang](initialsize = 256)
-      lang: Lang
       langfile = currentSourcePath.parentDir()/"langs.model.xml"
 
     doAssert langfile.fileExists(), "Failed to find " & langfile
@@ -53,7 +52,8 @@ const
 
     for ls in x.children:
       for l in ls.children:
-        lang = new(Lang)
+        var
+          lang: Lang
         lang.name = l.attr("name")
         if lang.name.len != 0:
           lang.ext = l.attr("ext").split(' ')
@@ -82,7 +82,7 @@ proc getLangLexerName(lang: Lang): string =
   else:
     result = lang.name
 
-proc getLang(plg: var Plugin, cmd: var CmdData): Lang =
+proc getLang(plg: Plugin, cmd: CmdData): Lang =
   if cmd.params.len != 0:
     var
       (_, _, ext) = cmd.params[0].splitFile()
@@ -92,26 +92,26 @@ proc getLang(plg: var Plugin, cmd: var CmdData): Lang =
     if gLangs.hasKey(ext):
       result = gLangs[ext]
 
-proc getCommentLine(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc getCommentLine(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     lang = plg.getLang(cmd)
 
-  if not lang.isNil and lang.commentLine.len != 0:
+  if not lang.name.len != 0 and lang.commentLine.len != 0:
     cmd.returned.add lang.commentLine
 
-proc getLexer(plg: var Plugin): int =
+proc getLexer(plg: Plugin): int =
   result = plg.ctx.msg(plg.ctx, SCI_GETLEXER)
 
-proc resetLexer(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc resetLexer(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   discard plg.ctx.msg(plg.ctx, SCI_SETLEXER, SCLEX_NULL)
   for i in 0 .. 8:
     discard plg.ctx.msg(plg.ctx, SCI_SETKEYWORDS, i, "".cstring)
 
-proc setLexer(plg: var Plugin, cmd: var CmdData) {.feudCallback.} =
+proc setLexer(plg: Plugin, cmd: CmdData) {.feudCallback.} =
   var
     lang = plg.getLang(cmd)
 
-  if not lang.isNil:
+  if not lang.name.len != 0:
     if lang.getLangLexer() != plg.getLexer():
       plg.ctx.notify(plg.ctx, &"Set language to {lang.name} for '{cmd.params[0].extractFilename()}'")
 
