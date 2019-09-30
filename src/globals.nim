@@ -1,7 +1,5 @@
 import dynlib, locks, sets, tables
 
-import shared/seq
-
 type
   CmdData* = ref object
     params*: seq[string]
@@ -26,7 +24,7 @@ type
     onTick*: proc(plg: Plugin, cmd: CmdData)
     onNotify*: proc(plg: Plugin, cmd: CmdData)
 
-    cindex*: seq[string]
+    cindex*: HashSet[string]
     callbacks*: Table[string, proc(plg: Plugin, cmd: CmdData)]
     pluginData*: pointer
 
@@ -40,8 +38,8 @@ type
     lock*: Lock
     run*: Run
     mode*: PluginMode
-    load*: SharedSeq[string]
-    processed*: SharedSeq[string]
+    load*: HashSet[string]
+    processed*: HashSet[string]
     ready*: bool
 
   Ctx* = ref object

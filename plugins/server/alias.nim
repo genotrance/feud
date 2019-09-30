@@ -1,4 +1,4 @@
-import strformat, strutils, tables
+import sets, strformat, strutils, tables
 
 import "../../src"/pluginapi
 
@@ -14,7 +14,7 @@ proc setupAlias(plg: Plugin, alias: string) =
     aliases = plg.getAliases()
 
   if not plg.callbacks.hasKey(alias):
-    plg.cindex.add alias
+    plg.cindex.incl alias
     plg.callbacks[alias] = proc(plg: Plugin, cmd: CmdData) =
       var
         command = aliases.atable[alias]
@@ -42,10 +42,8 @@ proc alias(plg: Plugin, cmd: CmdData) {.feudCallback.} =
     if cmd.params.len == 1 and cmd.params[0].len != 0:
       let
         alias = cmd.params[0]
-        idx = plg.cindex.find(alias)
       aliases.atable.del(alias)
-      if idx != -1:
-        plg.cindex.del(idx)
+      plg.cindex.excl alias
       plg.callbacks.del(alias)
     elif cmd.params.len == 2 and
       cmd.params[0].len != 0 and cmd.params[1].len != 0:

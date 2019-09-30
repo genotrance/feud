@@ -1,5 +1,3 @@
-import shared/seq
-
 import dynlib, locks, os, osproc, sequtils, sets, strformat, strutils, tables, times
 
 import "."/[globals, utils]
@@ -100,12 +98,12 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
           if (allowed.len != 0 and name notin allowed) or
               (blocked.len != 0 and name in blocked):
             if name notin pmonitor[].processed:
-              pmonitor[].processed.add name
+              pmonitor[].processed.incl name
             continue
 
           if name notin pmonitor[].processed:
-            pmonitor[].processed.add name
-            pmonitor[].load.add &"{dllPath}"
+            pmonitor[].processed.incl name
+            pmonitor[].load.incl &"{dllPath}"
     else:
       for sourcePath in xPaths:
         let
@@ -117,7 +115,7 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             (blocked.len != 0 and name in blocked):
           withLock pmonitor[].lock:
             if name notin pmonitor[].processed:
-              pmonitor[].processed.add name
+              pmonitor[].processed.incl name
           continue
 
         if not dllPath.fileExists() or sourcePath.sourceChanged(dllPath):
@@ -134,17 +132,17 @@ proc monitorPlugins(pmonitor: ptr PluginMonitor) {.thread.} =
             sourcePath.getLastModificationTime() > dllPathNew.getLastModificationTime():
             (output, exitCode) = execCmdEx(&"nim c --app:lib -o:{dllPath}.new {relbuild} {sourcePath}")
           if exitCode != 0:
-            pmonitor[].load.add &"{output}\nPlugin compilation failed for {sourcePath}"
+            pmonitor[].load.incl &"{output}\nPlugin compilation failed for {sourcePath}"
           else:
             withLock pmonitor[].lock:
               if name notin pmonitor[].processed:
-                pmonitor[].processed.add name
-              pmonitor[].load.add &"{dllPath}.new"
+                pmonitor[].processed.incl name
+              pmonitor[].load.incl &"{dllPath}.new"
         else:
           withLock pmonitor[].lock:
             if name notin pmonitor[].processed:
-              pmonitor[].processed.add name
-              pmonitor[].load.add &"{dllPath}"
+              pmonitor[].processed.incl name
+              pmonitor[].load.incl &"{dllPath}"
 
 proc unloadPlugin(ctx: Ctx, name: string) =
   if ctx.plugins.hasKey(name):
@@ -323,17 +321,17 @@ proc stopPlugins*(ctx: Ctx) =
 
   gThread.joinThread()
 
-  ctx.pmonitor[].load.free()
-  ctx.pmonitor[].processed.free()
+  ctx.pmonitor[].load.clear()
+  ctx.pmonitor[].processed.clear()
 
   freeShared(ctx.pmonitor)
 
 proc reloadPlugins(ctx: Ctx) =
   var
-    load: seq[string]
+    load: HashSet[string]
 
   withLock ctx.pmonitor[].lock:
-    load = ctx.pmonitor[].load.toSequence()
+    load = ctx.pmonitor[].load
 
     ctx.pmonitor[].load.clear()
 
@@ -387,7 +385,7 @@ proc handlePluginCommand*(ctx: Ctx, cmd: CmdData) =
       if cmd.params.len > 1:
         withLock ctx.pmonitor[].lock:
           for i in 1 .. cmd.params.len-1:
-            ctx.pmonitor[].processed.remove cmd.params[i]
+            ctx.pmonitor[].processed.excl cmd.params[i]
       else:
         ctx.pmonitor[].processed.clear()
     of "punload":

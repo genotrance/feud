@@ -1,4 +1,4 @@
-import cligen, os, strutils
+import cligen, strutils
 
 import "src"/sci
 
