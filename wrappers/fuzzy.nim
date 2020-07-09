@@ -1,9 +1,9 @@
 import os
 
-import nimterop/[cimport, git]
+import nimterop/[cimport, build]
 
 const
-  fuzDir = currentSourcePath().parentDir().parentDir()/"build"/"fuzzy"
+  fuzDir = getProjectCacheDir("feud"/"fuzzy")
   fuzFile = fuzDir/"fts_fuzzy_match.h"
 
 static:
@@ -12,4 +12,7 @@ static:
 
 {.passC: "--std=c++11 -DFTS_FUZZY_MATCH_IMPLEMENTATION".}
 
-c2nimport(fuzFile, flags = "--cpp")
+type
+  uint8_t = uint8
+
+c2nimport(fuzFile, mode = "cpp", flags = "--cpp")

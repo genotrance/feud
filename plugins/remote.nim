@@ -26,7 +26,7 @@ proc monitorRemote(tparam: tuple[premote: ptr Remote, listen, dial: string]) {.t
     listener: nng_listener
     dialer: nng_dialer
     buf: cstring
-    sz: cuint
+    sz: uint
     ret: cint
     run = true
 

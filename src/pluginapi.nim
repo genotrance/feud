@@ -1,6 +1,6 @@
 import macros, os, sets, strutils, tables
 
-import nimterop/[cimport, git]
+import nimterop/[cimport, build]
 
 import "."/[globals, utils]
 export CmdData, Plugin, PluginMode, Ctx
@@ -8,14 +8,14 @@ export utils
 
 # Scintilla constants
 const
-  sciDir = currentSourcePath().parentDir().parentDir()/"build"/"scintilla"
+  sciDir = getProjectCacheDir("feud" / "scintilla" / "scintilla")
+
+import sciDir / scintilla
 
 static:
-  gitPull("https://github.com/mirror/scintilla", sciDir)
+  downloadUrl("https://www.scintilla.org/scintilla443.zip", baseDir)
 
 cIncludeDir(sciDir/"include")
-cImport(sciDir/"include/Scintilla.h", recurse=true)
-cImport(sciDir/"include/SciLexer.h")
 
 const SciDefs* = (block:
   var

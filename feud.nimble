@@ -7,15 +7,18 @@ license     = "MIT"
 
 # Dependencies
 
-requires "nim >= 0.19.0", "c2nim >= 0.9.14", "nimterop#v020"
-requires "cligen >= 0.9.17", "winim >= 2.5.2", "xml >= 0.1.2"
+requires "nim >= 0.19.0", "c2nim >= 0.9.14", "nimterop >= 0.6.2"
+requires "cligen >= 1.0.0", "winim >= 3.3.5", "xml >= 0.1.3"
+
+when defined(Windows):
+  requires "cmake >= 0.1.0"
 
 import strutils
 
 var
   dll = ".dll"
   exe = ".exe"
-  flags = "--opt:speed"
+  flags = "-d:danger"
 
 when defined(Linux):
   dll = ".so"
@@ -82,11 +85,11 @@ task binary, "Release binary":
   releaseTask()
 
 task debug, "Debug build":
-  flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert --lineTrace:on"
+  flags = "-g"
   releaseTask()
 
 task dbin, "Debug binaries":
-  flags = "--debugger:native --debuginfo -d:useGcAssert -d:useSysAssert --lineTrace:on"
+  flags = "-g"
   binTask()
 
 task test, "Tester":

@@ -56,4 +56,4 @@ type
     plugins*: Table[string, Plugin]
     pluginData*: Table[string, pointer]
 
-  FeudException* = object of Exception
+  FeudException* = object of CatchableError
