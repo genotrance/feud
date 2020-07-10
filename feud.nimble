@@ -18,7 +18,7 @@ import strutils
 var
   dll = ".dll"
   exe = ".exe"
-  flags = "-d:danger"
+  flags = "-d:release"
 
 when defined(Linux):
   dll = ".so"
@@ -34,15 +34,12 @@ task cleandll, "Clean DLLs":
         rmFile file
 
 task clean, "Clean all":
-  var
-    exe =
-      when defined(Windows):
-        ".exe"
-      else:
-        ""
+  var exe = when defined(Windows): ".exe" else: ""
 
   rmFile "feud" & exe
   rmFile "feudc" & exe
+  rmFile "wrappers/scintillawrapper.nim"
+  rmFile "wrappers/libscilexer.a"
   cleandllTask()
 
 proc echoExec(cmd: string) =
@@ -66,19 +63,23 @@ proc execDlls(task: proc(path: string)) =
 
 task dll, "Build dlls":
   execDlls(buildDlls)
-  if "debug" notin flags:
+  if "-g" notin flags:
     execDlls(stripDlls)
 
-task bin, "Build binaries":
-  echoExec "nim c " & flags & " feudc"
+task feud, "Build feud":
   echoExec "nim c " & flags & " feud"
-  if "debug" notin flags:
-    echoExec "strip -s feudc" & exe
+  if "-g" notin flags:
     echoExec "strip -s feud" & exe
 
+task feudc, "Build feud":
+  echoExec "nim c " & flags & " feudc"
+  if "-g" notin flags:
+    echoExec "strip -s feudc" & exe
+
 task release, "Release build":
+  feudTask()
+  feudcTask()
   dllTask()
-  binTask()
 
 task binary, "Release binary":
   flags = "-d:binary " & flags
@@ -88,9 +89,17 @@ task debug, "Debug build":
   flags = "-g"
   releaseTask()
 
-task dbin, "Debug binaries":
+task ddll, "Debug binaries":
   flags = "-g"
-  binTask()
+  dllTask()
+
+task dfeud, "Debug binaries":
+  flags = "-g"
+  feudTask()
+
+task dfeudc, "Debug binaries":
+  flags = "-g"
+  feudcTask()
 
 task test, "Tester":
   echoExec "nim tests/test.nims"

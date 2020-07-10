@@ -34,5 +34,6 @@ when defined(Windows):
 cDefine("NNG_DECL", "extern")
 cIncludeDir(nngDir/"include")
 
-cImport(nngDir/"include/nng/nng.h", flags = "-E_")
-cImport(nngDir/"include/nng/protocol/bus0/bus.h")
+cImport(
+  @[nngDir/"include/nng/nng.h", nngDir/"include/nng/protocol/bus0/bus.h"], flags = "-E_"
+)

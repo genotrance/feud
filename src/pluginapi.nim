@@ -1,6 +1,6 @@
 import macros, os, sets, strutils, tables
 
-import nimterop/[cimport, build]
+import nimterop/[build]
 
 import "."/[globals, utils]
 export CmdData, Plugin, PluginMode, Ctx
@@ -10,12 +10,8 @@ export utils
 const
   sciDir = getProjectCacheDir("feud" / "scintilla" / "scintilla")
 
-import sciDir / scintilla
-
-static:
-  downloadUrl("https://www.scintilla.org/scintilla443.zip", baseDir)
-
-cIncludeDir(sciDir/"include")
+import ".." / wrappers / scintillawrapper
+export scintillawrapper
 
 const SciDefs* = (block:
   var

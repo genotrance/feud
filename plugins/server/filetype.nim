@@ -123,7 +123,7 @@ proc setLexer(plg: Plugin, cmd: CmdData) {.feudCallback.} =
     cmd.returned.add lang.getLangLexerName()
   else:
     plg.resetLexer(cmd)
-  
+
 feudPluginDepends(["window"])
 
 feudPluginLoad()
