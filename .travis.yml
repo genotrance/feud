@@ -8,19 +8,15 @@ env:
 
 cache:
   directories:
-    - "$HOME/.choosenim/toolchains/nim-1.2.4"
+    - "$HOME/.choosenim"
 
 if: tag IS blank
 
 install:
   - set -e
-  - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=boehmgc64-stripped.dll" -o boehmgc64.dll
-  - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=choosenim.exe" -o choosenim.exe
-  - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=libeay32.dll" -o libeay32.dll
-  - curl -L -s "https://bintray.com/genotrance/binaries/download_file?file_path=ssleay32.dll" -o ssleay32.dll
-  - ./choosenim.exe $BRANCH -y
-  - rm -rf ./choosenim.exe
-  - export PATH=$HOME/.nimble/bin:$PATH
+  - curl https://gist.github.com/genotrance/fb53504a4fba88bc5201d3783df5c522/raw/travis.sh -LsSf -o travis.sh
+  - source travis.sh
+  - curl "https://bintray.com/genotrance/binaries/download_file?file_path=boehmgc64-stripped.dll" -LsSf -o boehmgc64.dll
   - export BUILD_DATE=$(date +'%Y%m%d%H%M')
   - export GIT_HASH=$(git log --format=%h -1)
   - export GIT_HASH_FULL=$(git rev-parse HEAD)
